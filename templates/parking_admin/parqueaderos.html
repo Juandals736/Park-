@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Cupos y Parqueaderos - Operador{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-sliders-h"></i> Control de Cupos y Disponibilidad</h1>
+        <p class="page-subtitle">Actualiza la ocupación en tiempo real y ajusta información de tus parqueaderos</p>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem;">
+    {% for p in parqueaderos %}
+    <div class="card" id="card-p-{{ p.id }}">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div>
+                <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--gray-900);">{{ p.nombre }}</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted);"><i class="fas fa-map-marker-alt text-red"></i> {{ p.direccion }}</p>
+            </div>
+            <span class="badge badge-{% if p.estado == 'disponible' %}success{% elif p.estado == 'casi_lleno' %}amber{% elif p.estado == 'lleno' %}danger{% else %}gray{% endif %}" id="badge-estado-{{ p.id }}">
+                {{ p.estado.replace('_', ' ').capitalize() }}
+            </span>
+        </div>
+
+        <!-- Métrica de Ocupación con botones interactivos -->
+        <div style="background: var(--gray-50); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <span style="font-size: 0.875rem; font-weight: 600; color: var(--gray-700);">Control Rápido de Vehículos</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Capacidad Total: <strong>{{ p.capacidad_total }}</strong></span>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+                <!-- Botón -1 -->
+                <button type="button" class="btn btn-outline" style="width: 44px; height: 44px; font-size: 1.2rem; border-radius: var(--radius-md);" onclick="modificarOcupacion({{ p.id }}, '-1')" title="Salida de vehículo (-1)">
+                    <i class="fas fa-minus"></i>
+                </button>
+
+                <!-- Contador Central -->
+                <div style="text-align: center; flex: 1;">
+                    <div style="font-size: 2rem; font-weight: 800; color: var(--gray-900); line-height: 1;" id="ocupados-val-{{ p.id }}">
+                        {{ p.espacios_ocupados }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-top: 0.2rem;">
+                        Ocupados (<span id="disp-val-{{ p.id }}" style="color: var(--green-600); font-weight: 700;">{{ p.espacios_disponibles }}</span> libres)
+                    </div>
+                </div>
+
+                <!-- Botón +1 -->
+                <button type="button" class="btn btn-primary" style="width: 44px; height: 44px; font-size: 1.2rem; border-radius: var(--radius-md);" onclick="modificarOcupacion({{ p.id }}, '+1')" title="Entrada de vehículo (+1)">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+
+            <!-- Barra de Progreso -->
+            <div style="margin-top: 1rem;">
+                <div style="height: 10px; background: var(--gray-200); border-radius: 5px; overflow: hidden;">
+                    <div id="progreso-bar-{{ p.id }}" style="width: {{ p.porcentaje_ocupacion }}%; height: 100%; background: {% if p.porcentaje_ocupacion >= 90 %}var(--red-600){% elif p.porcentaje_ocupacion >= 75 %}var(--amber-500){% else %}var(--green-500){% endif %}; transition: width 0.3s ease;"></div>
+                </div>
+                <div style="text-align: right; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pct-val-{{ p.id }}">
+                    {{ p.porcentaje_ocupacion }}% ocupado
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalles informativos -->
+        <div style="font-size: 0.825rem; color: var(--gray-600); display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1.25rem;">
+            <div><i class="fas fa-clock text-muted"></i> <strong>Horario:</strong><br>{{ p.horario }}</div>
+            <div><i class="fas fa-tag text-muted"></i> <strong>Tarifas:</strong><br>${{ "{:,.0f}".format(p.tarifa_inicial) }} / ${{ "{:,.0f}".format(p.tarifa_hora) }}h</div>
+            <div><i class="fas fa-car text-muted"></i> <strong>Vehículos:</strong><br>{{ p.tipo_vehiculo.capitalize() }}</div>
+            <div><i class="fas fa-phone text-muted"></i> <strong>Contacto:</strong><br>{{ p.telefono_contacto or 'N/A' }}</div>
+        </div>
+
+        <button class="btn btn-outline" style="width: 100%;" onclick="abrirModalEditarInfo({{ p.id }}, {{ p.capacidad_total }}, {{ p.espacios_ocupados }}, '{{ p.horario|replace("'", "\\'") }}', {{ p.tarifa_inicial }}, {{ p.tarifa_hora }}, '{{ p.estado }}', '{{ p.tipo_vehiculo }}')">
+            <i class="fas fa-edit"></i> Actualizar Tarifas y Capacidad Total
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- MODAL EDITAR INFORMACIÓN DE PARQUEADERO -->
+<div class="modal-overlay" id="modalEditarInfo">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-cog text-blue"></i> Actualizar Información</h2>
+            <button class="modal-close" onclick="cerrarModal('modalEditarInfo')">&times;</button>
+        </div>
+        <form id="formEditarInfo" method="POST">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Capacidad Total *</label>
+                        <input type="number" name="capacidad_total" id="info_capacidad" class="form-control" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Espacios Ocupados *</label>
+                        <input type="number" name="espacios_ocupados" id="info_ocupados" class="form-control" min="0" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tarifa Inicial (COP) *</label>
+                        <input type="number" step="100" name="tarifa_inicial" id="info_tarifa_ini" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tarifa Hora (COP) *</label>
+                        <input type="number" step="100" name="tarifa_hora" id="info_tarifa_hora" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Vehículo</label>
+                        <select name="tipo_vehiculo" id="info_tipo" class="form-select">
+                            <option value="ambos">Carro y Moto (Ambos)</option>
+                            <option value="carro">Solo Carros</option>
+                            <option value="moto">Solo Motos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado Manual</label>
+                        <select name="estado" id="info_estado" class="form-select">
+                            <option value="disponible">Disponible</option>
+                            <option value="abierto">Abierto</option>
+                            <option value="casi_lleno">Casi Lleno</option>
+                            <option value="lleno">Lleno</option>
+                            <option value="cerrado">Cerrado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Horario de Atención *</label>
+                    <input type="text" name="horario" id="info_horario" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function modificarOcupacion(id, cambio) {
+    const formData = new FormData();
+    formData.append('cambio', cambio);
+
+    fetch(`/parking-admin/parqueaderos/${id}/actualizar-ocupacion`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`ocupados-val-${id}`).textContent = data.espacios_ocupados;
+            document.getElementById(`disp-val-${id}`).textContent = data.espacios_disponibles;
+            document.getElementById(`pct-val-${id}`).textContent = `${data.porcentaje_ocupacion}% ocupado`;
+            
+            const bar = document.getElementById(`progreso-bar-${id}`);
+            bar.style.width = `${data.porcentaje_ocupacion}%`;
+            if (data.porcentaje_ocupacion >= 90) bar.style.backgroundColor = 'var(--red-600)';
+            else if (data.porcentaje_ocupacion >= 75) bar.style.backgroundColor = 'var(--amber-500)';
+            else bar.style.backgroundColor = 'var(--green-500)';
+
+            const badge = document.getElementById(`badge-estado-${id}`);
+            badge.textContent = data.estado.replace('_', ' ').toUpperCase();
+            badge.className = `badge badge-${data.estado === 'disponible' ? 'success' : data.estado === 'casi_lleno' ? 'amber' : data.estado === 'lleno' ? 'danger' : 'gray'}`;
+        }
+    })
+    .catch(err => console.error("Error al actualizar:", err));
+}
+
+function abrirModalEditarInfo(id, cap, ocup, horario, tIni, tHora, estado, tipo) {
+    document.getElementById('formEditarInfo').action = `/parking-admin/parqueaderos/${id}/editar-info`;
+    document.getElementById('info_capacidad').value = cap;
+    document.getElementById('info_ocupados').value = ocup;
+    document.getElementById('info_horario').value = horario;
+    document.getElementById('info_tarifa_ini').value = tIni;
+    document.getElementById('info_tarifa_hora').value = tHora;
+    document.getElementById('info_estado').value = estado;
+    document.getElementById('info_tipo').value = tipo;
+    abrirModal('modalEditarInfo');
+}
+</script>
+{% endblock %}

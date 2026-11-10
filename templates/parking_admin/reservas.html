@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Reservas de Parqueaderos - Operador{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-list-alt"></i> Reservas de tus Parqueaderos</h1>
+        <p class="page-subtitle">Consulta y gestiona las reservas realizadas por los estudiantes</p>
+    </div>
+</div>
+
+<!-- Filtros Rápidos -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+    <form method="GET" action="{{ url_for('parking_admin.reservas') }}" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+            <label class="form-label">Filtrar por Parqueadero</label>
+            <select name="parqueadero_id" class="form-select">
+                <option value="">-- Todos los Parqueaderos --</option>
+                {% for p in parqueaderos %}
+                <option value="{{ p.id }}" {% if parqueadero_filtro == p.id|string %}selected{% endif %}>{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="flex: 1; min-width: 180px;">
+            <label class="form-label">Filtrar por Estado</label>
+            <select name="estado" class="form-select">
+                <option value="">-- Todos los Estados --</option>
+                <option value="activa" {% if estado_filtro == 'activa' %}selected{% endif %}>Activas</option>
+                <option value="completada" {% if estado_filtro == 'completada' %}selected{% endif %}>Completadas</option>
+                <option value="cancelada" {% if estado_filtro == 'cancelada' %}selected{% endif %}>Canceladas</option>
+            </select>
+        </div>
+
+        <div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Aplicar Filtros</button>
+            <a href="{{ url_for('parking_admin.reservas') }}" class="btn btn-outline">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    <table id="tablaOperadorReservas" class="dataTable display responsive nowrap" style="width:100%">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Estudiante</th>
+                <th>Parqueadero</th>
+                <th>Fecha</th>
+                <th>Horario</th>
+                <th>Vehículo</th>
+                <th>Placa</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in reservas %}
+            <tr>
+                <td><strong>{{ r.codigo_reserva }}</strong></td>
+                <td>
+                    <strong>{{ r.estudiante.nombre_completo }}</strong><br>
+                    <small class="text-muted">{{ r.estudiante.email }} | {{ r.estudiante.telefono or 'Sin tel.' }}</small>
+                </td>
+                <td>{{ r.parqueadero.nombre }}</td>
+                <td>{{ r.fecha.strftime('%d/%m/%Y') }}</td>
+                <td>{{ r.hora_inicio.strftime('%H:%M') }} - {{ r.hora_finalizacion.strftime('%H:%M') }}</td>
+                <td>
+                    <i class="fas fa-{% if r.tipo_vehiculo == 'carro' %}car{% else %}motorcycle{% endif %}"></i>
+                    {{ r.tipo_vehiculo.capitalize() }}
+                </td>
+                <td><strong>{{ r.placa_vehiculo or 'N/A' }}</strong></td>
+                <td>
+                    {% if r.estado == 'activa' %}
+                        <span class="badge badge-success"><i class="fas fa-check-circle"></i> Activa</span>
+                    {% elif r.estado == 'completada' %}
+                        <span class="badge badge-blue"><i class="fas fa-flag-checkered"></i> Completada</span>
+                    {% else %}
+                        <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Cancelada</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 0.35rem;">
+                        {% if r.estado == 'activa' %}
+                        <form action="{{ url_for('parking_admin.cambiar_estado_reserva', id=r.id) }}" method="POST" style="display:inline;">
+                            <input type="hidden" name="estado" value="completada">
+                            <button type="submit" class="btn btn-sm btn-outline" title="Marcar como Completada">
+                                <i class="fas fa-check text-green"></i> Completar
+                            </button>
+                        </form>
+                        <form action="{{ url_for('parking_admin.cambiar_estado_reserva', id=r.id) }}" method="POST" style="display:inline;">
+                            <input type="hidden" name="estado" value="cancelada">
+                            <button type="submit" class="btn btn-sm btn-outline" title="Cancelar Reserva">
+                                <i class="fas fa-times text-red"></i> Cancelar
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted" style="font-size: 0.8rem;">Finalizada</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#tablaOperadorReservas').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+        },
+        pageLength: 10,
+        responsive: true,
+        order: [[3, 'desc']]
+    });
+});
+</script>
+{% endblock %}

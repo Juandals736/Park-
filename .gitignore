@@ -1,0 +1,38 @@
+# Entorno virtual de Python
+venv/
+env/
+ENV/
+.venv/
+
+# Variables de entorno y secretos (NUNCA subir a GitHub)
+.env
+*.env
+!.env.example
+
+# Bytecode y caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Bases de datos SQLite locales y temporales
+*.sqlite3
+*.db
+
+# IDEs y Editores
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Logs y depuración
+*.log
+logs/
+
+# Cobertura y testing
+.coverage
+htmlcov/
+.pytest_cache/
+

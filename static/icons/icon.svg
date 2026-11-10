@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e3a8a;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <!-- Fondo redondeado estilo App Icon -->
+  <rect width="512" height="512" rx="110" fill="url(#grad)"/>
+  
+  <!-- Letra P estilizada con sombra -->
+  <g filter="url(#shadow)">
+    <!-- Letra P -->
+    <path d="M160 110 h110 c65 0 110 40 110 100 c0 60 -45 100 -110 100 h-50 v92 h-60 Z m60 60 v80 h50 c32 0 50 -18 50 -40 c0 -22 -18 -40 -50 -40 Z" fill="#ffffff"/>
+    
+    <!-- Pin de ubicación GPS en la esquina inferior derecha -->
+    <circle cx="360" cy="360" r="65" fill="#10b981" />
+    <circle cx="360" cy="360" r="30" fill="#ffffff" />
+    <circle cx="360" cy="360" r="14" fill="#2563eb" />
+  </g>
+</svg>

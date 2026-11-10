@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Park+ | Tu Parqueadero al Instante</title>
+    
+    <!-- Meta tags PWA & Móvil -->
+    <meta name="description" content="Park+ te permite encontrar cupos disponibles en tiempo real con geolocalización GPS, rutas en el mapa y reserva al instante.">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Park+">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Estilos de la Landing y PWA -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+<body class="landing-body">
+
+    <!-- ORBES DE LUZ ANIMADOS DE FONDO -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <!-- NAVBAR MODERNA PARK+ -->
+    <header class="landing-nav">
+        <div class="landing-nav-container">
+            <a href="#inicio" class="landing-brand">
+                <div class="landing-brand-icon">
+                    <i class="fas fa-parking"></i>
+                </div>
+                <span>Park<span class="plus-symbol">+</span></span>
+            </a>
+
+            <!-- Enlaces de navegación -->
+            <ul class="landing-links" id="landingNavLinks">
+                <li><a href="#inicio">Inicio</a></li>
+                <li><a href="#ventajas">Ventajas</a></li>
+                <li><a href="#como-funciona">Cómo Funciona</a></li>
+                <li><a href="#descargar-app"><i class="fas fa-mobile-screen"></i> App Móvil</a></li>
+            </ul>
+
+            <!-- Acciones -->
+            <div class="landing-nav-actions">
+                <button type="button" class="btn-app-install-nav" id="btnInstallAppHero" title="Instalar en tu teléfono">
+                    <i class="fas fa-download"></i> <span>Instalar App</span>
+                </button>
+
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_admin %}
+                        <a href="{{ url_for('admin.dashboard') }}" class="btn-gradient-nav">
+                            <i class="fas fa-chart-line"></i> Dashboard
+                        </a>
+                    {% elif current_user.is_parking_admin %}
+                        <a href="{{ url_for('parking_admin.dashboard') }}" class="btn-gradient-nav">
+                            <i class="fas fa-chart-pie"></i> Operador
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('student.mapa') }}" class="btn-gradient-nav">
+                            <i class="fas fa-map-marked-alt"></i> Mis Reservas
+                        </a>
+                    {% endif %}
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="nav-login-link">
+                        Ingresar
+                    </a>
+                    <a href="{{ url_for('auth.register') }}" class="btn-gradient-nav">
+                        Registrarse
+                    </a>
+                {% endif %}
+
+                <!-- Botón móvil -->
+                <button class="mobile-toggle" id="mobileToggle" aria-label="Abrir menú">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="landing-hero" id="inicio">
+        <div class="hero-container">
+            <div class="hero-text animate-fade-in">
+                <div class="hero-pill animate-float-slow">
+                    <span class="hero-pill-pulse"></span>
+                    <span>Mapa GPS y rutas en tiempo real</span>
+                </div>
+                
+                <h1 class="hero-title">
+                    Estaciona sin vueltas con <span class="highlight">Park+</span>
+                </h1>
+                
+                <p class="hero-subtitle">
+                    Descubre cupos disponibles en vivo, traza tu ruta de llegada directamente en el mapa y reserva tu lugar para carro o moto al instante.
+                </p>
+
+                <div class="hero-buttons">
+                    {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('student.mapa') }}" class="btn-hero-primary pulse-btn">
+                            <i class="fas fa-map-location-dot"></i> Ver Mapa y Rutas en Vivo
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="btn-hero-primary pulse-btn">
+                            <i class="fas fa-arrow-right-to-bracket"></i> Iniciar Sesión para Ver Mapa
+                        </a>
+                    {% endif %}
+                    <a href="#descargar-app" class="btn-hero-outline">
+                        <i class="fas fa-mobile-screen"></i> Descargar App
+                    </a>
+                </div>
+
+                <!-- Métricas Rápidas -->
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">+500</span>
+                        <span class="stat-label">Cupos activos</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">100%</span>
+                        <span class="stat-label">Precisión GPS</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">En Vivo</span>
+                        <span class="stat-label">Rutas en tiempo real</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Interactivo Hero: Mockup Celular con Animación Flotante -->
+            <div class="hero-visual animate-fade-in delay-1">
+                <div class="phone-mockup-wrapper animate-float">
+                    <div class="phone-card-glow"></div>
+                    
+                    <div class="phone-screen-inner">
+                        <div class="phone-top-bar">
+                            <div class="phone-brand">
+                                <div class="brand-dot"></div>
+                                <span>Park<strong>+</strong></span>
+                            </div>
+                            <span class="live-pill"><i class="fas fa-circle text-green"></i> En Vivo</span>
+                        </div>
+
+                        <div class="mockup-gps-card">
+                            <div class="gps-pulse-icon">
+                                <i class="fas fa-route"></i>
+                            </div>
+                            <div class="gps-info">
+                                <h6>Ruta Inteligente</h6>
+                                <p>Cálculo de trayecto sin salir de la app</p>
+                            </div>
+                        </div>
+
+                        <div class="mockup-items-list">
+                            <div class="mockup-item">
+                                <div class="item-left">
+                                    <div class="item-icon-car"><i class="fas fa-car"></i></div>
+                                    <div>
+                                        <strong>Parqueadero Central</strong>
+                                        <span><i class="fas fa-route text-blue"></i> A 180 m • 2 min</span>
+                                    </div>
+                                </div>
+                                <span class="badge-free">14 libres</span>
+                            </div>
+
+                            <div class="mockup-item">
+                                <div class="item-left">
+                                    <div class="item-icon-moto"><i class="fas fa-motorcycle"></i></div>
+                                    <div>
+                                        <strong>Parqueadero Norte</strong>
+                                        <span><i class="fas fa-route text-blue"></i> A 450 m • 4 min</span>
+                                    </div>
+                                </div>
+                                <span class="badge-free">28 libres</span>
+                            </div>
+                        </div>
+
+                        <div class="mockup-cta">
+                            {% if current_user.is_authenticated %}
+                                <a href="{{ url_for('student.mapa') }}" class="btn-mockup-action">
+                                    <i class="fas fa-map-marked-alt"></i> Explorar Mapa en Vivo
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('auth.login') }}" class="btn-mockup-action">
+                                    <i class="fas fa-arrow-right"></i> Ingresar para Ver Mapa
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN VENTAJAS (BREVE Y CONCISA) -->
+    <section class="landing-features" id="ventajas">
+        <div class="section-header">
+            <span class="section-tag"><i class="fas fa-check-double"></i> ¿Por qué Park+?</span>
+            <h2 class="section-title">Ahorra Tiempo y Dinero</h2>
+            <p class="section-subtitle">La solución pensada para optimizar tus trayectos cotidianos.</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card card-hover-fx">
+                <div class="feature-icon-box bg-blue">
+                    <i class="fas fa-stopwatch"></i>
+                </div>
+                <h3 class="feature-title">Cero Pérdida de Tiempo</h3>
+                <p class="feature-desc">Di adiós a dar vueltas en círculos buscando estacionamiento.</p>
+            </div>
+
+            <div class="feature-card card-hover-fx">
+                <div class="feature-icon-box bg-green">
+                    <i class="fas fa-shield-halved"></i>
+                </div>
+                <h3 class="feature-title">Seguridad Garantizada</h3>
+                <p class="feature-desc">Puntos vigilados y control de acceso con registro de placas.</p>
+            </div>
+
+            <div class="feature-card card-hover-fx">
+                <div class="feature-icon-box bg-amber">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h3 class="feature-title">Tarifas Transparentes</h3>
+                <p class="feature-desc">Conoce el valor exacto por hora antes de iniciar tu reserva.</p>
+            </div>
+
+            <div class="feature-card card-hover-fx">
+                <div class="feature-icon-box bg-purple">
+                    <i class="fas fa-mobile-screen-button"></i>
+                </div>
+                <h3 class="feature-title">Instalable en tu Celular</h3>
+                <p class="feature-desc">Usa Park+ como una App móvil ligera sin ocupar almacenamiento.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN CÓMO FUNCIONA (PASOS) -->
+    <section class="landing-steps" id="como-funciona">
+        <div class="section-header">
+            <span class="section-tag"><i class="fas fa-route"></i> En 3 Pasos</span>
+            <h2 class="section-title">¿Cómo Funciona?</h2>
+        </div>
+
+        <div class="steps-grid">
+            <div class="step-item card-hover-fx">
+                <div class="step-number">1</div>
+                <h4 class="step-title">Ingresa o explora</h4>
+                <p class="step-desc">Revisa el mapa en vivo y activa tu GPS con 1 toque.</p>
+            </div>
+            <div class="step-item card-hover-fx">
+                <div class="step-number">2</div>
+                <h4 class="step-title">Traza tu ruta</h4>
+                <p class="step-desc">Pulsa "Cómo llegar" para ver el camino exacto por las calles.</p>
+            </div>
+            <div class="step-item card-hover-fx">
+                <div class="step-number">3</div>
+                <h4 class="step-title">Reserva y aparca</h4>
+                <p class="step-desc">Asegura tu cupo y viaja con total tranquilidad.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN DESCARGA EN MÓVIL (PWA) -->
+    <section class="landing-download" id="descargar-app">
+        <div class="download-container">
+            <div class="download-content">
+                <span class="download-tag"><i class="fas fa-mobile-screen"></i> App Móvil</span>
+                <h2 class="download-title">Descarga Park+ en tu Teléfono</h2>
+                <p class="download-desc">
+                    Instala nuestra aplicación con 1 solo toque. Accede a tu mapa y a tus reservas directo desde tu pantalla de inicio sin descargas pesadas de tienda.
+                </p>
+
+                <div class="download-actions-row">
+                    <button type="button" class="btn-install-app pulse-btn" id="btnInstallAppSection">
+                        <i class="fas fa-download text-blue"></i> Instalar en este Dispositivo
+                    </button>
+                </div>
+
+                <p class="install-help-text">
+                    <i class="fas fa-apple-whole"></i> En iPhone: Toca <strong>Compartir</strong> en Safari y elige <strong>"Añadir a pantalla de inicio"</strong>.
+                </p>
+            </div>
+
+            <div class="download-badge-box animate-float">
+                <div class="app-icon-preview">
+                    <i class="fas fa-parking"></i>
+                    <span>Park<strong>+</strong></span>
+                </div>
+                <p style="margin: 0.75rem 0 0; font-size: 0.85rem; opacity: 0.85;">Listo para instalar en Android e iOS</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- BANNER FLOTANTE INFERIOR PARA MÓVILES (INSTALACIÓN RÁPIDA PWA) -->
+    <div class="mobile-install-banner" id="mobileInstallBanner">
+        <div class="banner-left">
+            <div class="banner-icon">
+                <i class="fas fa-parking"></i>
+            </div>
+            <div class="banner-text">
+                <h5>Instalar Park+</h5>
+                <p>Accede en 1 toque desde tu pantalla</p>
+            </div>
+        </div>
+        <div class="banner-right">
+            <button type="button" class="btn-banner-install" id="btnBannerInstall">
+                Instalar
+            </button>
+            <button type="button" class="btn-banner-close" id="btnBannerClose" aria-label="Cerrar">
+                &times;
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="landing-footer">
+        <div class="footer-container">
+            <div class="footer-col">
+                <a href="#inicio" class="landing-brand" style="color: white; margin-bottom: 0.75rem; display: inline-flex;">
+                    <div class="landing-brand-icon">
+                        <i class="fas fa-parking"></i>
+                    </div>
+                    <span>Park<span class="plus-symbol">+</span></span>
+                </a>
+                <p style="font-size: 0.88rem; line-height: 1.5; color: var(--gray-400);">
+                    Gestión inteligente y reservas de parqueaderos con geolocalización en tiempo real.
+                </p>
+            </div>
+
+            <div class="footer-col">
+                <h5>Enlaces</h5>
+                <ul>
+                    <li><a href="#inicio">Inicio</a></li>
+                    <li><a href="#ventajas">Ventajas</a></li>
+                    <li><a href="#como-funciona">Cómo Funciona</a></li>
+                    <li><a href="#descargar-app">Descargar App</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h5>Acceso</h5>
+                <ul>
+                    <li><a href="{{ url_for('auth.login') }}">Iniciar Sesión</a></li>
+                    <li><a href="{{ url_for('auth.register') }}">Registrarse</a></li>
+                    <li><a href="{{ url_for('auth.forgot_password') }}">Recuperar Contraseña</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h5>Soporte</h5>
+                <ul>
+                    <li><a href="mailto:soporte@gestionparqueaderos.com">soporte@gestionparqueaderos.com</a></li>
+                    <li><a href="#">Términos y Privacidad</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <div>
+                &copy; 2026 <strong>Park+</strong>. Todos los derechos reservados.
+            </div>
+            <div style="display: flex; gap: 1rem; font-size: 1.1rem;">
+                <a href="#" style="color: var(--gray-400);"><i class="fab fa-facebook"></i></a>
+                <a href="#" style="color: var(--gray-400);"><i class="fab fa-twitter"></i></a>
+                <a href="#" style="color: var(--gray-400);"><i class="fab fa-instagram"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Lógica de PWA, Instalación y Animaciones -->
+    <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+</body>
+</html>

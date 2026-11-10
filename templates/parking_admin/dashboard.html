@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Panel del Operador - Highcharts{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-chart-pie"></i> Panel de Administrador de Parqueaderos</h1>
+        <p class="page-subtitle">Supervisión en tiempo real de disponibilidad, aforo y reservas</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ url_for('parking_admin.parqueaderos') }}" class="btn btn-primary">
+            <i class="fas fa-sliders-h"></i> Control de Cupos en Vivo
+        </a>
+        <a href="{{ url_for('parking_admin.reservas') }}" class="btn btn-outline">
+            <i class="fas fa-list"></i> Consultar Reservas
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas de Métricas -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue">
+            <i class="fas fa-warehouse"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ total_parqueaderos }}</div>
+            <div class="stat-label">Parqueaderos a Cargo</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon amber">
+            <i class="fas fa-car-side"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ espacios_ocupados }} / {{ capacidad_total }}</div>
+            <div class="stat-label">Cupos Ocupados</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i class="fas fa-parking"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ espacios_disponibles }}</div>
+            <div class="stat-label">Cupos Disponibles</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon blue">
+            <i class="fas fa-calendar-day"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ reservas_hoy }}</div>
+            <div class="stat-label">Reservas para Hoy</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value">{{ reservas_activas }}</div>
+            <div class="stat-label">Reservas Activas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Contenedor de Gráficos Highcharts -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Gráfico 1: Capacidad vs Ocupación por Parqueadero -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900);">
+                <i class="fas fa-chart-bar text-blue"></i> Disponibilidad y Ocupación por Parqueadero
+            </h3>
+            <span class="badge badge-blue">Highcharts</span>
+        </div>
+        <div id="graficoOcupacion" style="height: 340px;"></div>
+    </div>
+
+    <!-- Gráfico 2: Reservas por Estado -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900);">
+                <i class="fas fa-pie-chart text-green"></i> Distribución de Reservas
+            </h3>
+            <span class="badge badge-green">Highcharts</span>
+        </div>
+        <div id="graficoEstados" style="height: 340px;"></div>
+    </div>
+</div>
+
+<!-- Gráfico 3: Tendencia de Reservas últimos 7 días -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900);">
+            <i class="fas fa-chart-line text-blue"></i> Tendencia de Reservas (Últimos 7 Días)
+        </h3>
+        <span class="badge badge-gray">Histórico semanal</span>
+    </div>
+    <div id="graficoTendencia" style="height: 280px;"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar tema minimalista en Highcharts
+    Highcharts.setOptions({
+        colors: ['#2563eb', '#10b981', '#ef4444', '#f59e0b', '#64748b'],
+        chart: {
+            style: {
+                fontFamily: 'Inter, sans-serif'
+            }
+        },
+        credits: { enabled: false }
+    });
+
+    // Cargar datos asíncronos para los gráficos
+    fetch("{{ url_for('parking_admin.api_stats') }}")
+        .then(response => response.json())
+        .then(data => {
+            // 1. Gráfico de Columnas: Disponibles vs Ocupados
+            Highcharts.chart('graficoOcupacion', {
+                chart: { type: 'column' },
+                title: { text: null },
+                xAxis: {
+                    categories: data.parqueaderos.categorias,
+                    crosshair: true
+                },
+                yAxis: {
+                    min: 0,
+                    title: { text: 'Número de Cupos' }
+                },
+                tooltip: {
+                    headerFormat: '<b>{point.key}</b><br>',
+                    pointFormat: '<span style="color:{series.color}">●</span> {series.name}: <b>{point.y}</b> cupos<br/>'
+                },
+                plotOptions: {
+                    column: {
+                        borderRadius: 4,
+                        dataLabels: { enabled: true }
+                    }
+                },
+                series: [{
+                    name: 'Cupos Disponibles',
+                    data: data.parqueaderos.disponibles,
+                    color: '#10b981'
+                }, {
+                    name: 'Cupos Ocupados',
+                    data: data.parqueaderos.ocupados,
+                    color: '#ef4444'
+                }]
+            });
+
+            // 2. Gráfico de Dona: Reservas por Estado
+            Highcharts.chart('graficoEstados', {
+                chart: { type: 'pie' },
+                title: { text: null },
+                plotOptions: {
+                    pie: {
+                        innerSize: '60%',
+                        allowPointSelect: true,
+                        cursor: 'pointer',
+                        dataLabels: {
+                            enabled: true,
+                            format: '<b>{point.name}</b>: {point.y}'
+                        }
+                    }
+                },
+                series: [{
+                    name: 'Reservas',
+                    data: data.estados
+                }]
+            });
+
+            // 3. Gráfico de Líneas: Tendencia
+            Highcharts.chart('graficoTendencia', {
+                chart: { type: 'areaspline' },
+                title: { text: null },
+                xAxis: {
+                    categories: data.tendencia.dias
+                },
+                yAxis: {
+                    min: 0,
+                    title: { text: 'Cantidad de Reservas' }
+                },
+                tooltip: {
+                    pointFormat: '<b>{point.y}</b> reservas registradas'
+                },
+                plotOptions: {
+                    areaspline: {
+                        fillOpacity: 0.15,
+                        color: '#2563eb',
+                        marker: {
+                            radius: 4,
+                            lineColor: '#2563eb',
+                            fillColor: '#ffffff',
+                            lineWidth: 2
+                        }
+                    }
+                },
+                series: [{
+                    name: 'Reservas',
+                    data: data.tendencia.conteos
+                }]
+            });
+        })
+        .catch(err => console.error("Error al cargar estadísticas:", err));
+});
+</script>
+{% endblock %}

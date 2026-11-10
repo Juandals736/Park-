@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestión de Parqueaderos{% endblock %}</title>
+    
+    <!-- Meta tags PWA & Móvil -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Estilos de la Aplicación -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    {% if current_user.is_authenticated %}
+    <!-- Barra de Navegación Principal -->
+    <header class="navbar">
+        <a href="{{ url_for('index') }}" class="nav-brand">
+            <div class="brand-icon">
+                <i class="fas fa-parking"></i>
+            </div>
+            <span>Park+</span>
+        </a>
+
+        <nav>
+            <ul class="nav-menu">
+                {% if current_user.is_admin %}
+                    <li>
+                        <a href="{{ url_for('admin.dashboard') }}" class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-line"></i> Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('admin.usuarios_list') }}" class="nav-link {% if 'usuarios' in request.endpoint %}active{% endif %}">
+                            <i class="fas fa-users"></i> Usuarios
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('admin.parqueaderos_list') }}" class="nav-link {% if request.endpoint == 'admin.parqueaderos_list' %}active{% endif %}">
+                            <i class="fas fa-warehouse"></i> Parqueaderos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('admin.reservas_list') }}" class="nav-link {% if request.endpoint == 'admin.reservas_list' %}active{% endif %}">
+                            <i class="fas fa-calendar-check"></i> Reservas (ServerSide)
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('student.mapa') }}" class="nav-link {% if request.endpoint == 'student.mapa' %}active{% endif %}">
+                            <i class="fas fa-map-marked-alt"></i> Ver Mapa
+                        </a>
+                    </li>
+                {% elif current_user.is_parking_admin %}
+                    <li>
+                        <a href="{{ url_for('parking_admin.dashboard') }}" class="nav-link {% if request.endpoint == 'parking_admin.dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i> Estadísticas Highcharts
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('parking_admin.parqueaderos') }}" class="nav-link {% if request.endpoint == 'parking_admin.parqueaderos' %}active{% endif %}">
+                            <i class="fas fa-car"></i> Gestión Cupos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('parking_admin.reservas') }}" class="nav-link {% if request.endpoint == 'parking_admin.reservas' %}active{% endif %}">
+                            <i class="fas fa-list-alt"></i> Reservas
+                        </a>
+                    </li>
+                {% else %}
+                    <li>
+                        <a href="{{ url_for('student.mapa') }}" class="nav-link {% if request.endpoint == 'student.mapa' %}active{% endif %}">
+                            <i class="fas fa-map-marked-alt"></i> Explorar Parqueaderos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('student.mis_reservas') }}" class="nav-link {% if request.endpoint == 'student.mis_reservas' %}active{% endif %}">
+                            <i class="fas fa-ticket-alt"></i> Mis Reservas
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+        <div class="nav-user">
+            <div class="user-badge">
+                <i class="fas fa-user-circle"></i>
+                <span>{{ current_user.nombre_completo.split()[0] }}</span>
+                {% if current_user.is_admin %}
+                    <span class="badge badge-blue">Admin</span>
+                {% elif current_user.is_parking_admin %}
+                    <span class="badge badge-amber">Operador</span>
+                {% else %}
+                    <span class="badge badge-success">Estudiante</span>
+                {% endif %}
+            </div>
+
+            <a href="{{ url_for('auth.change_password') }}" class="btn-icon" title="Cambiar Contraseña">
+                <i class="fas fa-key"></i>
+            </a>
+
+            <a href="{{ url_for('auth.logout') }}" class="btn-logout" title="Cerrar Sesión">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </header>
+    {% endif %}
+
+    <main class="main-content">
+        <!-- Notificaciones y Mensajes Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {% if category == 'success' %}
+                                <i class="fas fa-check-circle"></i>
+                            {% elif category == 'danger' %}
+                                <i class="fas fa-exclamation-circle"></i>
+                            {% elif category == 'warning' %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                            {% else %}
+                                <i class="fas fa-info-circle"></i>
+                            {% endif %}
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if current_user.is_authenticated %}
+    <footer class="footer">
+        <div>
+            &copy; 2026 <strong>Park+</strong> - Sistema Integral de Gestión de Parqueaderos. Base de Datos: PostgreSQL.
+        </div>
+    </footer>
+    {% endif %}
+
+    <!-- Scripts Esenciales -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function(){});
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

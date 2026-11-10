@@ -1,0 +1,655 @@
+{% extends "base.html" %}
+
+{% block title %}Mapa de Parqueaderos - Park+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 1rem;">
+    <div>
+        <h1 class="page-title"><i class="fas fa-map-marked-alt"></i> Parqueaderos Disponibles</h1>
+        <p class="page-subtitle">Explora en el mapa interactivo la disponibilidad de cupos en tiempo real y reserva tu lugar</p>
+    </div>
+    <div>
+        <a href="{{ url_for('student.mis_reservas') }}" class="btn btn-primary">
+            <i class="fas fa-ticket-alt"></i> Ver Mis Reservas
+        </a>
+    </div>
+</div>
+
+<!-- Layout del Mapa: Sidebar de Selección y Visor Leaflet -->
+<div class="map-layout">
+    <!-- Panel Lateral de Parqueaderos -->
+    <div class="map-sidebar">
+        <div class="map-sidebar-header">
+            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--gray-800);">
+                <i class="fas fa-filter text-blue"></i> Filtrar Parqueaderos
+            </div>
+            
+            <div style="display: flex; gap: 0.4rem; margin-bottom: 0.5rem;">
+                <button type="button" class="btn btn-sm btn-primary filter-btn active" data-tipo="todos">Todos</button>
+                <button type="button" class="btn btn-sm btn-outline filter-btn" data-tipo="carro"><i class="fas fa-car"></i> Carros</button>
+                <button type="button" class="btn btn-sm btn-outline filter-btn" data-tipo="moto"><i class="fas fa-motorcycle"></i> Motos</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="chkSoloDisponibles" style="accent-color: var(--green-600); width: 16px; height: 16px;">
+                <label for="chkSoloDisponibles" style="font-size: 0.8rem; color: var(--gray-700); cursor: pointer; font-weight: 500;">
+                    Solo con cupos disponibles
+                </label>
+            </div>
+
+            <button type="button" class="btn btn-sm" id="btnLocalizarGPS" style="width: 100%; margin-top: 0.6rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-weight: 700; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border: none; border-radius: 8px; padding: 0.45rem; cursor: pointer;">
+                <i class="fas fa-location-crosshairs"></i> Ubicar mi posición (GPS)
+            </button>
+            <div id="bannerGpsStudent" style="display:none; font-size: 0.78rem; padding: 0.4rem 0.6rem; border-radius: 6px; margin-top: 0.4rem; font-weight: 500;"></div>
+        </div>
+
+        <div class="map-list-container" id="parkingListContainer">
+            <!-- Renderizado dinámico de tarjetas de parqueaderos -->
+        </div>
+    </div>
+
+    <!-- Visor de Mapa con Leaflet y OpenStreetMap -->
+    <div class="map-viewport" style="position: relative;">
+        <!-- Panel Flotante de Ruta (sin redireccionar) -->
+        <div id="routeOverlayStudent" style="display:none; position:absolute; top:12px; left:12px; right:12px; z-index:1000; background:rgba(255,255,255,0.96); backdrop-filter:blur(8px); border:1px solid #bfdbfe; border-radius:12px; padding:0.6rem 1rem; box-shadow:0 8px 20px rgba(0,0,0,0.15); align-items:center; justify-content:space-between; gap:0.5rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+                <i class="fas fa-route text-blue" style="font-size:1.2rem;"></i>
+                <div>
+                    <strong id="routeTitleStudent" style="font-size:0.88rem; color:#0f172a; display:block;">Ruta</strong>
+                    <span id="routeDescStudent" style="font-size:0.75rem; color:#475569;">Calculando...</span>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" onclick="cancelarRutaEstudiante()" style="color:#dc2626; border-color:#fca5a5; font-size:0.75rem; padding:0.25rem 0.5rem; cursor:pointer;">
+                <i class="fas fa-times"></i> Quitar
+            </button>
+        </div>
+
+        <div id="leaflet-map"></div>
+    </div>
+</div>
+
+<!-- MODAL PARA REALIZAR RESERVA -->
+<div class="modal-overlay" id="modalReservar">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-calendar-check text-blue"></i> Reservar Cupo</h2>
+            <button class="modal-close" onclick="cerrarModal('modalReservar')">&times;</button>
+        </div>
+        <form action="{{ url_for('student.crear_reserva') }}" method="POST">
+            <input type="hidden" name="parqueadero_id" id="reserva_parqueadero_id">
+            
+            <div class="modal-body">
+                <!-- Tarjeta Resumen del Parqueadero Seleccionado -->
+                <div style="background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem;">
+                    <div style="font-weight: 700; font-size: 1.05rem; color: var(--blue-900);" id="modal_p_nombre">Nombre Parqueadero</div>
+                    <div style="font-size: 0.8rem; color: var(--gray-600); margin-top: 0.2rem;" id="modal_p_direccion">Dirección</div>
+                    <div style="display: flex; gap: 1rem; margin-top: 0.6rem; font-size: 0.8rem;">
+                        <span>Tarifa base: <strong id="modal_p_tarifa_ini">$0</strong></span>
+                        <span>Tarifa/hora: <strong id="modal_p_tarifa_hora">$0</strong></span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Fecha de Reserva *</label>
+                        <input type="date" name="fecha" id="res_fecha" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Vehículo *</label>
+                        <select name="tipo_vehiculo" id="res_tipo_vehiculo" class="form-select" required>
+                            <option value="carro">Carro</option>
+                            <option value="moto">Moto</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Hora de Inicio *</label>
+                        <input type="time" name="hora_inicio" id="res_hora_inicio" class="form-control" value="08:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hora de Finalización *</label>
+                        <input type="time" name="hora_finalizacion" id="res_hora_fin" class="form-control" value="12:00" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Placa del Vehículo (Opcional)</label>
+                    <input type="text" name="placa_vehiculo" class="form-control" placeholder="Ej: ABC-123" style="text-transform: uppercase;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notas Adicionales</label>
+                    <textarea name="notas" class="form-control" rows="2" placeholder="Indicaciones para el operador..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btnConfirmarReserva">
+                    <i class="fas fa-check"></i> Confirmar Reserva
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let mapaLeaflet;
+let marcadores = [];
+let parqueaderosGlobal = [];
+let filtroTipo = 'todos';
+let soloDisponibles = false;
+let userCoords = null;
+let userLocationMarker = null;
+let userAccuracyCircle = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar fecha mínima hoy
+    const hoyStr = new Date().toISOString().split('T')[0];
+    document.getElementById('res_fecha').min = hoyStr;
+    document.getElementById('res_fecha').value = hoyStr;
+
+    // Inicializar mapa de Leaflet
+    mapaLeaflet = L.map('leaflet-map', {
+        zoomControl: true,
+        scrollWheelZoom: true
+    }).setView([1.2136, -77.2811], 14);
+
+    // Capa de OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    }).addTo(mapaLeaflet);
+
+    // Forzar redibujado para evitar áreas grises
+    setTimeout(() => { if (mapaLeaflet) mapaLeaflet.invalidateSize(); }, 150);
+    setTimeout(() => { if (mapaLeaflet) mapaLeaflet.invalidateSize(); }, 400);
+    setTimeout(() => { if (mapaLeaflet) mapaLeaflet.invalidateSize(); }, 1000);
+    window.addEventListener('resize', () => { if (mapaLeaflet) mapaLeaflet.invalidateSize(); });
+
+    // Eventos de Filtros
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('btn-primary', 'active');
+                b.classList.add('btn-outline');
+            });
+            this.classList.remove('btn-outline');
+            this.classList.add('btn-primary', 'active');
+            filtroTipo = this.getAttribute('data-tipo');
+            renderizarParqueaderos();
+        });
+    });
+
+    document.getElementById('chkSoloDisponibles').addEventListener('change', function() {
+        soloDisponibles = this.checked;
+        renderizarParqueaderos();
+    });
+
+    // Evento Geolocalización GPS
+    const btnGps = document.getElementById('btnLocalizarGPS');
+    if (btnGps) {
+        btnGps.addEventListener('click', function() {
+            activarGpsEstudiante(false);
+        });
+    }
+
+    // Cargar datos de parqueaderos
+    cargarParqueaderos();
+});
+
+function activarGpsEstudiante(silencioso = false, callback = null) {
+    const btn = document.getElementById('btnLocalizarGPS');
+    const banner = document.getElementById('bannerGpsStudent');
+    
+    if (!navigator.geolocation) {
+        if (!silencioso && banner) {
+            banner.style.display = 'block';
+            banner.style.background = '#fee2e2';
+            banner.style.color = '#dc2626';
+            banner.innerHTML = '<i class="fas fa-exclamation-circle"></i> Tu dispositivo no soporta GPS.';
+        }
+        if (callback) callback(null);
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación GPS...';
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> ¡Ubicación GPS Activa!';
+                btn.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
+            }
+
+            userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+            if (userLocationMarker && mapaLeaflet) mapaLeaflet.removeLayer(userLocationMarker);
+            if (userAccuracyCircle && mapaLeaflet) mapaLeaflet.removeLayer(userAccuracyCircle);
+
+            const userIcon = L.divIcon({
+                className: 'custom-user-gps-icon',
+                html: `
+                    <div style="position:relative; width:24px; height:24px;">
+                        <div style="position:absolute; width:16px; height:16px; background:#2563eb; border:3px solid white; border-radius:50%; box-shadow:0 0 8px rgba(0,0,0,0.4); top:4px; left:4px; z-index:2;"></div>
+                        <div style="position:absolute; width:24px; height:24px; background:rgba(37,99,235,0.4); border-radius:50%; animation:pulse 1.8s infinite; z-index:1;"></div>
+                    </div>
+                `,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            if (mapaLeaflet) {
+                userLocationMarker = L.marker([userCoords.lat, userCoords.lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(mapaLeaflet);
+                userLocationMarker.bindPopup('<strong style="color:#1e3a8a;"><i class="fas fa-street-view"></i> Tu Ubicación GPS</strong>');
+
+                if (pos.coords.accuracy && pos.coords.accuracy < 2000) {
+                    userAccuracyCircle = L.circle([userCoords.lat, userCoords.lng], {
+                        radius: pos.coords.accuracy,
+                        color: '#3b82f6',
+                        fillColor: '#93c5fd',
+                        fillOpacity: 0.15,
+                        weight: 1
+                    }).addTo(mapaLeaflet);
+                }
+            }
+
+            if (banner) {
+                banner.style.display = 'block';
+                banner.style.background = '#ecfdf5';
+                banner.style.color = '#047857';
+                banner.innerHTML = '<i class="fas fa-check"></i> Ubicación detectada. Parqueaderos ordenados por cercanía.';
+            }
+
+            renderizarParqueaderos();
+            if (callback) callback(userCoords);
+        },
+        function(err) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Ubicar mi posición (GPS)';
+            }
+            if (!silencioso && banner) {
+                banner.style.display = 'block';
+                banner.style.background = '#fef3c7';
+                banner.style.color = '#b45309';
+                banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Permiso denegado o GPS apagado.';
+            }
+            if (callback) callback(null);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+    );
+}
+
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+const DEFAULT_PARKINGS_STUDENT = [
+    {
+        id: 1,
+        nombre: 'Park+ Centro',
+        direccion: 'Carrera 24 # 18-42, Centro',
+        latitud: 1.195923,
+        longitud: -77.292206,
+        capacidad_total: 50,
+        espacios_disponibles: 18,
+        tipo_vehiculo: 'ambos',
+        tarifa_inicial: 1500,
+        tarifa_hora: 3500,
+        horario: '24 Horas',
+        estado: 'disponible'
+    },
+    {
+        id: 2,
+        nombre: 'Parqueadero Las Cuadras',
+        direccion: 'Calle 18 # 31-25, Las Cuadras',
+        latitud: 1.218896,
+        longitud: -77.296911,
+        capacidad_total: 44,
+        espacios_disponibles: 14,
+        tipo_vehiculo: 'ambos',
+        tarifa_inicial: 2000,
+        tarifa_hora: 2500,
+        horario: '24 Horas',
+        estado: 'disponible'
+    },
+    {
+        id: 3,
+        nombre: 'Estacionamiento Universidad de Nariño',
+        direccion: 'Torobajo, Calle 18',
+        latitud: 1.231200,
+        longitud: -77.292800,
+        capacidad_total: 65,
+        espacios_disponibles: 22,
+        tipo_vehiculo: 'ambos',
+        tarifa_inicial: 1000,
+        tarifa_hora: 2000,
+        horario: '6:00 AM - 10:00 PM',
+        estado: 'disponible'
+    },
+    {
+        id: 4,
+        nombre: 'Parqueadero San Andrés',
+        direccion: 'Calle 16 # 29-14, San Andrés',
+        latitud: 1.212500,
+        longitud: -77.282500,
+        capacidad_total: 35,
+        espacios_disponibles: 6,
+        tipo_vehiculo: 'ambos',
+        tarifa_inicial: 1800,
+        tarifa_hora: 3000,
+        horario: '6:00 AM - 9:00 PM',
+        estado: 'casi_lleno'
+    }
+];
+
+function cargarParqueaderos() {
+    fetch("{{ url_for('student.api_parqueaderos') }}")
+        .then(res => res.json())
+        .then(data => {
+            if (Array.isArray(data) && data.length > 0) {
+                parqueaderosGlobal = data;
+            } else {
+                parqueaderosGlobal = DEFAULT_PARKINGS_STUDENT;
+            }
+            renderizarParqueaderos();
+            if (mapaLeaflet) mapaLeaflet.invalidateSize();
+        })
+        .catch(err => {
+            console.warn("Cargando parqueaderos por defecto:", err);
+            parqueaderosGlobal = DEFAULT_PARKINGS_STUDENT;
+            renderizarParqueaderos();
+            if (mapaLeaflet) mapaLeaflet.invalidateSize();
+        });
+}
+
+function renderizarParqueaderos() {
+    // Limpiar marcadores existentes
+    marcadores.forEach(m => mapaLeaflet.removeLayer(m));
+    marcadores = [];
+
+    const container = document.getElementById('parkingListContainer');
+    container.innerHTML = '';
+
+    // Filtrar lista
+    let filtrados = parqueaderosGlobal.filter(p => {
+        if (filtroTipo !== 'todos') {
+            const t = (p.tipo_vehiculo || '').toLowerCase();
+            const esAmbos = t === 'ambos' || t === 'mixto';
+            const esCarro = esAmbos || t === 'carro' || t.includes('auto');
+            const esMoto = esAmbos || t === 'moto' || t.includes('moto');
+            if (filtroTipo === 'carro' && !esCarro) return false;
+            if (filtroTipo === 'moto' && !esMoto) return false;
+        }
+        if (soloDisponibles) {
+            if (p.estado === 'cerrado' || p.espacios_disponibles <= 0) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    // Calcular distancias si el usuario activó su GPS
+    if (userCoords) {
+        filtrados.forEach(p => {
+            if (p.latitud && p.longitud) {
+                const d = calcularDistanciaKm(userCoords.lat, userCoords.lng, p.latitud, p.longitud);
+                p.distKm = d;
+                p.distanciaTexto = d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`;
+            } else {
+                p.distKm = 999999;
+                p.distanciaTexto = '';
+            }
+        });
+        filtrados.sort((a, b) => a.distKm - b.distKm);
+    }
+
+    if (filtrados.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
+                <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                No se encontraron parqueaderos con los filtros seleccionados.
+            </div>
+        `;
+        return;
+    }
+
+    const bounds = [];
+
+    filtrados.forEach(p => {
+        bounds.push([p.latitud, p.longitud]);
+
+        // Determinar color y estado
+        let colorClase = 'disponible';
+        let badgeColor = 'success';
+        let textoEstado = 'Disponible';
+
+        if (p.estado === 'casi_lleno') {
+            colorClase = 'casi_lleno';
+            badgeColor = 'amber';
+            textoEstado = 'Casi Lleno';
+        } else if (p.estado === 'lleno') {
+            colorClase = 'lleno';
+            badgeColor = 'danger';
+            textoEstado = 'Lleno';
+        } else if (p.estado === 'cerrado') {
+            colorClase = 'cerrado';
+            badgeColor = 'gray';
+            textoEstado = 'Cerrado';
+        }
+
+        // Crear Tarjeta en Sidebar
+        const card = document.createElement('div');
+        card.className = 'parking-card-item';
+        card.id = `card-park-${p.id}`;
+        card.innerHTML = `
+            <div class="parking-item-header">
+                <div class="parking-item-name">${p.nombre}</div>
+                <span class="badge badge-${badgeColor}">${textoEstado}</span>
+            </div>
+            <div class="parking-item-address">
+                <i class="fas fa-map-marker-alt text-red"></i> ${p.direccion}
+                ${p.distanciaTexto ? `<span style="display:inline-block; margin-left:0.4rem; color:#2563eb; font-weight:700;"><i class="fas fa-location-arrow"></i> A ${p.distanciaTexto}</span>` : ''}
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.5rem;">
+                <span>Disponibles: <strong style="color: var(--green-600); font-size: 0.95rem;">${p.espacios_disponibles}</strong> / ${p.capacidad_total}</span>
+                <span>Tarifa: <strong>$${p.tarifa_hora.toLocaleString('es-CO')}/h</strong></span>
+            </div>
+            <div class="parking-item-meta">
+                <span><i class="fas fa-clock text-muted"></i> ${p.horario}</span>
+                <div style="display: flex; gap: 0.35rem;">
+                    <button type="button" class="btn btn-sm btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="event.stopPropagation(); trazarRutaEstudiante(${p.latitud}, ${p.longitud}, '${p.nombre.replace(/'/g, "\\'")}')">
+                        <i class="fas fa-route text-blue"></i> Cómo llegar
+                    </button>
+                    <button class="btn btn-sm ${p.espacios_disponibles > 0 && p.estado !== 'cerrado' ? 'btn-primary' : 'btn-outline'}" 
+                        ${p.espacios_disponibles <= 0 || p.estado === 'cerrado' ? 'disabled' : ''}
+                        onclick="event.stopPropagation(); prepararReserva(${p.id}, '${p.nombre.replace(/'/g, "\\'")}', '${p.direccion.replace(/'/g, "\\'")}', ${p.tarifa_inicial}, ${p.tarifa_hora}, '${p.tipo_vehiculo}')">
+                        <i class="fas fa-ticket-alt"></i> Reservar
+                    </button>
+                </div>
+            </div>
+        `;
+
+        card.addEventListener('click', () => {
+            mapaLeaflet.setView([p.latitud, p.longitud], 17);
+            marker.openPopup();
+            document.querySelectorAll('.parking-card-item').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+        });
+
+        container.appendChild(card);
+
+        // Icono Personalizado de Leaflet
+        const customIcon = L.divIcon({
+            className: 'custom-leaflet-marker',
+            html: `<div class="custom-pin ${colorClase}"><i class="fas fa-parking"></i></div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -18]
+        });
+
+        // Contenido del Popup con información requerida
+        const popupContent = `
+            <div style="min-width: 220px; font-family: 'Inter', sans-serif;">
+                <h4 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; color: #1e293b;">${p.nombre}</h4>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.6rem;"><i class="fas fa-map-marker-alt text-red"></i> ${p.direccion}</p>
+                <div style="border-top: 1px solid #e2e8f0; padding-top: 0.5rem; font-size: 0.8rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-bottom: 0.75rem;">
+                    <div><strong>Cupos Libres:</strong> <span style="color: #059669; font-weight: 700;">${p.espacios_disponibles}</span> / ${p.capacidad_total}</div>
+                    <div><strong>Estado:</strong> <span class="badge badge-${badgeColor}">${textoEstado}</span></div>
+                    <div><strong>Tarifa Base:</strong> $${p.tarifa_inicial.toLocaleString('es-CO')}</div>
+                    <div><strong>Tarifa Hora:</strong> $${p.tarifa_hora.toLocaleString('es-CO')}</div>
+                    <div style="grid-column: span 2;"><strong>Horario:</strong> ${p.horario}</div>
+                    <div style="grid-column: span 2;"><strong>Vehículos:</strong> ${p.tipo_vehiculo.toUpperCase()}</div>
+                </div>
+                <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem;">
+                    <button class="btn btn-sm btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.4rem;" onclick="trazarRutaEstudiante(${p.latitud}, ${p.longitud}, '${p.nombre.replace(/'/g, "\\'")}')">
+                        <i class="fas fa-route text-blue"></i> Cómo llegar
+                    </button>
+                    ${p.espacios_disponibles > 0 && p.estado !== 'cerrado' ? `
+                        <button class="btn btn-sm btn-primary" style="flex: 1; font-size: 0.75rem; padding: 0.4rem;" onclick="prepararReserva(${p.id}, '${p.nombre.replace(/'/g, "\\'")}', '${p.direccion.replace(/'/g, "\\'")}', ${p.tarifa_inicial}, ${p.tarifa_hora}, '${p.tipo_vehiculo}')">
+                            <i class="fas fa-check-circle"></i> Reservar
+                        </button>
+                    ` : `
+                        <span style="flex: 1; text-align: center; color: #dc2626; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center;">Lleno</span>
+                    `}
+                </div>
+            </div>
+        `;
+
+        const marker = L.marker([p.latitud, p.longitud], { icon: customIcon }).addTo(mapaLeaflet);
+        marker.bindPopup(popupContent);
+        
+        marker.on('click', () => {
+            document.querySelectorAll('.parking-card-item').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+
+        marcadores.push(marker);
+    });
+
+    if (bounds.length > 0) {
+        mapaLeaflet.fitBounds(bounds, { padding: [40, 40] });
+    }
+}
+
+function prepararReserva(id, nombre, direccion, tarifaIni, tarifaHora, tipoPermitido) {
+    document.getElementById('reserva_parqueadero_id').value = id;
+    document.getElementById('modal_p_nombre').textContent = nombre;
+    document.getElementById('modal_p_direccion').textContent = direccion;
+    document.getElementById('modal_p_tarifa_ini').textContent = '$' + tarifaIni.toLocaleString('es-CO');
+    document.getElementById('modal_p_tarifa_hora').textContent = '$' + tarifaHora.toLocaleString('es-CO');
+
+    // Configurar selector de vehículos: siempre habilitar opciones Carro y Moto
+    const tipoSelect = document.getElementById('res_tipo_vehiculo');
+    tipoSelect.innerHTML = `
+        <option value="carro">Carro</option>
+        <option value="moto">Moto</option>
+    `;
+
+    // Preseleccionar según el tipo preferido si aplica
+    const tipoLower = (tipoPermitido || '').toLowerCase();
+    if (tipoLower === 'moto' || tipoLower.includes('moto')) {
+        tipoSelect.value = 'moto';
+    } else {
+        tipoSelect.value = 'carro';
+    }
+
+    abrirModal('modalReservar');
+}
+
+let routeLayerStudent = null;
+
+function trazarRutaEstudiante(destLat, destLng, destNombre) {
+    if (userCoords) {
+        ejecutarRutaStudent(userCoords.lat, userCoords.lng, destLat, destLng, destNombre);
+    } else {
+        // Trazar INMEDIATAMENTE sin demoras desde el centro de referencia
+        const defaultOrig = [1.2136, -77.2811];
+        ejecutarRutaStudent(defaultOrig[0], defaultOrig[1], destLat, destLng, destNombre);
+
+        // Y en segundo plano intentar obtener GPS para afinar la ruta
+        activarGpsEstudiante(true, function(coords) {
+            if (coords) {
+                ejecutarRutaStudent(coords.lat, coords.lng, destLat, destLng, destNombre);
+            }
+        });
+    }
+}
+
+function ejecutarRutaStudent(origLat, origLng, destLat, destLng, destNombre) {
+    const overlay = document.getElementById('routeOverlayStudent');
+    const title = document.getElementById('routeTitleStudent');
+    const desc = document.getElementById('routeDescStudent');
+    overlay.style.display = 'flex';
+    title.innerText = `Ruta a ${destNombre}`;
+    desc.innerText = 'Calculando calles en tiempo real...';
+
+    if (mapaLeaflet) mapaLeaflet.invalidateSize();
+
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origLng},${origLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+    fetch(osrmUrl)
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.routes && data.routes.length > 0) {
+                const route = data.routes[0];
+                const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+                dibujarRutaStudent(coords);
+                const km = (route.distance / 1000).toFixed(1);
+                const min = Math.max(1, Math.round(route.duration / 60));
+                desc.innerHTML = `<strong>${km} km</strong> • Aprox. <strong>${min} min</strong> en vehículo`;
+            } else {
+                throw new Error();
+            }
+        })
+        .catch(() => {
+            const coords = [[origLat, origLng], [destLat, destLng]];
+            dibujarRutaStudent(coords);
+            const km = calcularDistanciaKm(origLat, origLng, destLat, destLng).toFixed(1);
+            desc.innerHTML = `<strong>${km} km</strong> (línea directa)`;
+        });
+}
+
+function dibujarRutaStudent(coords) {
+    if (!mapaLeaflet) return;
+
+    if (routeLayerStudent) {
+        mapaLeaflet.removeLayer(routeLayerStudent);
+    }
+
+    mapaLeaflet.invalidateSize();
+
+    routeLayerStudent = L.polyline(coords, {
+        color: '#2563eb',
+        weight: 6,
+        opacity: 0.9,
+        lineJoin: 'round'
+    }).addTo(mapaLeaflet);
+
+    mapaLeaflet.fitBounds(routeLayerStudent.getBounds(), { padding: [50, 50] });
+}
+
+function cancelarRutaEstudiante() {
+    if (routeLayerStudent && mapaLeaflet) {
+        mapaLeaflet.removeLayer(routeLayerStudent);
+        routeLayerStudent = null;
+    }
+    document.getElementById('routeOverlayStudent').style.display = 'none';
+}
+</script>
+{% endblock %}

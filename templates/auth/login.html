@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Sesión - Park+{% endblock %}
+
+{% block extra_css %}
+<style>
+    html, body {
+        height: 100vh !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .main-content {
+        height: 100vh !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+    .flash-messages {
+        position: absolute;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        max-width: 400px;
+        width: 90%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <!-- Botón flotante para regresar a la Landing -->
+    <a href="{{ url_for('index') }}" class="btn-back-home" title="Volver al inicio">
+        <i class="fas fa-arrow-left"></i> <span>Volver a Park+</span>
+    </a>
+
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-icon-badge">
+                <i class="fas fa-parking"></i>
+            </div>
+            <h1 class="auth-title">Iniciar Sesión</h1>
+            <p class="auth-subtitle">Ingresa tus credenciales para acceder a Park+</p>
+        </div>
+
+        <form action="{{ url_for('auth.login') }}" method="POST">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label class="form-label" for="email" style="font-size: 0.8rem; margin-bottom: 0.25rem;">
+                    <i class="fas fa-envelope text-muted"></i> Correo Electrónico
+                </label>
+                <input type="email" name="email" id="email" class="form-control"
+                    placeholder="usuario@universidad.edu.co" style="padding: 0.55rem 0.85rem; font-size: 0.88rem;" required autofocus>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.65rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                    <label class="form-label" for="password" style="font-size: 0.8rem; margin-bottom: 0;">
+                        <i class="fas fa-lock text-muted"></i> Contraseña
+                    </label>
+                    <a href="{{ url_for('auth.forgot_password') }}" style="font-size: 0.75rem; color: var(--blue-600); font-weight: 600; text-decoration: none;">
+                        ¿Olvidaste tu contraseña?
+                    </a>
+                </div>
+                <input type="password" name="password" id="password" class="form-control" placeholder="••••••••"
+                    style="padding: 0.55rem 0.85rem; font-size: 0.88rem;" required>
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem;">
+                <input type="checkbox" name="remember" id="remember"
+                    style="accent-color: var(--blue-600); width: 15px; height: 15px; cursor: pointer;">
+                <label for="remember" style="font-size: 0.8rem; color: var(--gray-600); cursor: pointer; user-select: none;">
+                    Recordar mi sesión
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem; font-size: 0.92rem; font-weight: 700; border-radius: 10px;">
+                <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+            </button>
+        </form>
+
+        <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); text-align: center; font-size: 0.82rem; color: var(--gray-600);">
+            ¿No tienes cuenta? <a href="{{ url_for('auth.register') }}" style="font-weight: 700; color: var(--blue-600);">Regístrate gratis</a>
+        </div>
+
+        <!-- Acceso Rápido Demo en 1 sola fila compacta -->
+        <div style="margin-top: 0.85rem; background: var(--gray-50); border: 1px dashed var(--gray-300); border-radius: 10px; padding: 0.5rem 0.75rem;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: var(--gray-500); text-transform: uppercase; margin-bottom: 0.35rem; text-align: center; letter-spacing: 0.04em;">
+                <i class="fas fa-bolt text-amber"></i> Cuentas de Demostración
+            </div>
+            <div style="display: flex; gap: 0.35rem; justify-content: center;">
+                <button type="button" class="btn btn-sm btn-outline"
+                    onclick="cargarDemo('admin@parqueaderos.com', 'Admin123!')" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 6px;">
+                    <i class="fas fa-user-shield text-blue"></i> Admin
+                </button>
+                <button type="button" class="btn btn-sm btn-outline"
+                    onclick="cargarDemo('operador1@parqueaderos.com', 'Operador123!')" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 6px;">
+                    <i class="fas fa-user-tie text-amber"></i> Operador
+                </button>
+                <button type="button" class="btn btn-sm btn-outline"
+                    onclick="cargarDemo('estudiante1@universidad.edu.co', 'Estudiante123!')"
+                    style="font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 6px;">
+                    <i class="fas fa-graduation-cap text-green"></i> Estudiante
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function cargarDemo(email, pass) {
+        document.getElementById('email').value = email;
+        document.getElementById('password').value = pass;
+    }
+</script>
+{% endblock %}

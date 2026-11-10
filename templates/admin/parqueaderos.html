@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Parqueaderos - Park+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-warehouse"></i> Gestión de Parqueaderos</h1>
+        <p class="page-subtitle">Configura capacidades, tarifas, horarios, disponibilidad y operadores asignados</p>
+    </div>
+    <button class="btn btn-primary" onclick="abrirModal('modalCrearParqueadero')">
+        <i class="fas fa-plus-circle"></i> Nuevo Parqueadero
+    </button>
+</div>
+
+<!-- Grid de Parqueaderos con información detallada -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    {% for p in parqueaderos %}
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                <div>
+                    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900);">{{ p.nombre }}</h3>
+                    <p style="font-size: 0.825rem; color: var(--text-muted);"><i class="fas fa-map-marker-alt text-red"></i> {{ p.direccion }}</p>
+                </div>
+                <div>
+                    {% if p.estado == 'disponible' %}
+                        <span class="badge badge-success"><i class="fas fa-check-circle"></i> Disponible</span>
+                    {% elif p.estado == 'casi_lleno' %}
+                        <span class="badge badge-amber"><i class="fas fa-exclamation-circle"></i> Casi Lleno</span>
+                    {% elif p.estado == 'lleno' %}
+                        <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Lleno</span>
+                    {% elif p.estado == 'cerrado' %}
+                        <span class="badge badge-gray"><i class="fas fa-lock"></i> Cerrado</span>
+                    {% else %}
+                        <span class="badge badge-blue">{{ p.estado.capitalize() }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Barra de Ocupación Visual -->
+            <div style="margin: 1rem 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.35rem;">
+                    <span>Ocupación: <strong>{{ p.espacios_ocupados }} / {{ p.capacidad_total }}</strong></span>
+                    <span style="font-weight: 700; color: {% if p.porcentaje_ocupacion >= 90 %}var(--red-600){% elif p.porcentaje_ocupacion >= 75 %}var(--amber-600){% else %}var(--green-600){% endif %};">
+                        {{ p.porcentaje_ocupacion }}%
+                    </span>
+                </div>
+                <div style="height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden;">
+                    <div style="width: {{ p.porcentaje_ocupacion }}%; height: 100%; background: {% if p.porcentaje_ocupacion >= 90 %}var(--red-600){% elif p.porcentaje_ocupacion >= 75 %}var(--amber-500){% else %}var(--green-500){% endif %}; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+
+            <!-- Datos Técnicos Requeridos -->
+            <div style="background: var(--gray-50); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.825rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem;">
+                <div>
+                    <span class="text-muted"><i class="fas fa-car-side"></i> Vehículos:</span><br>
+                    <strong style="text-transform: capitalize;">
+                        {% if p.tipo_vehiculo == 'ambos' %}
+                            <i class="fas fa-car"></i> <i class="fas fa-motorcycle"></i> Carro y Moto
+                        {% elif p.tipo_vehiculo == 'carro' %}
+                            <i class="fas fa-car"></i> Solo Carros
+                        {% else %}
+                            <i class="fas fa-motorcycle"></i> Solo Motos
+                        {% endif %}
+                    </strong>
+                </div>
+                <div>
+                    <span class="text-muted"><i class="fas fa-parking"></i> Disponibles:</span><br>
+                    <strong style="color: var(--green-600); font-size: 1rem;">{{ p.espacios_disponibles }} cupos</strong>
+                </div>
+                <div>
+                    <span class="text-muted"><i class="fas fa-tag"></i> Tarifa Base:</span><br>
+                    <strong>${{ "{:,.0f}".format(p.tarifa_inicial) }} COP</strong>
+                </div>
+                <div>
+                    <span class="text-muted"><i class="fas fa-clock"></i> Tarifa / Hora:</span><br>
+                    <strong>${{ "{:,.0f}".format(p.tarifa_hora) }} COP</strong>
+                </div>
+                <div style="grid-column: span 2;">
+                    <span class="text-muted"><i class="far fa-calendar-alt"></i> Horario:</span><br>
+                    <strong>{{ p.horario }}</strong>
+                </div>
+                <div style="grid-column: span 2; border-top: 1px solid var(--gray-200); padding-top: 0.4rem;">
+                    <span class="text-muted"><i class="fas fa-user-tie"></i> Operador a cargo:</span>
+                    <strong>{{ p.administrador.nombre_completo if p.administrador else 'No asignado' }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+            <button class="btn btn-sm btn-outline" onclick="editarParqueadero({{ p.id }}, '{{ p.nombre|replace("'", "\\'") }}', '{{ p.direccion|replace("'", "\\'") }}', {{ p.latitud }}, {{ p.longitud }}, {{ p.capacidad_total }}, {{ p.espacios_ocupados }}, '{{ p.tipo_vehiculo }}', {{ p.tarifa_inicial }}, {{ p.tarifa_hora }}, '{{ p.horario|replace("'", "\\'") }}', '{{ p.estado }}', '{{ p.administrador_id or '' }}', '{{ p.telefono_contacto or '' }}')">
+                <i class="fas fa-edit"></i> Modificar
+            </button>
+            <button class="btn btn-sm btn-outline btn-delete" onclick="eliminarParqueadero({{ p.id }}, '{{ p.nombre|replace("'", "\\'") }}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Tabla Detallada DataTable -->
+<div class="card">
+    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;"><i class="fas fa-table text-blue"></i> Listado General de Parqueaderos</h3>
+    <div class="table-container" style="border: none; padding: 0;">
+        <table id="tablaParqueaderos" class="dataTable display responsive nowrap" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Dirección</th>
+                    <th>Capacidad</th>
+                    <th>Ocupados</th>
+                    <th>Disponibles</th>
+                    <th>Vehículo</th>
+                    <th>Tarifa Inicial</th>
+                    <th>Tarifa Hora</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in parqueaderos %}
+                <tr>
+                    <td><strong>{{ p.nombre }}</strong></td>
+                    <td>{{ p.direccion }}</td>
+                    <td>{{ p.capacidad_total }}</td>
+                    <td>{{ p.espacios_ocupados }}</td>
+                    <td><strong style="color: var(--green-600);">{{ p.espacios_disponibles }}</strong></td>
+                    <td style="text-transform: capitalize;">{{ p.tipo_vehiculo }}</td>
+                    <td>${{ "{:,.0f}".format(p.tarifa_inicial) }}</td>
+                    <td>${{ "{:,.0f}".format(p.tarifa_hora) }}</td>
+                    <td>
+                        {% if p.estado == 'disponible' %}
+                            <span class="badge badge-success">Disponible</span>
+                        {% elif p.estado == 'casi_lleno' %}
+                            <span class="badge badge-amber">Casi Lleno</span>
+                        {% elif p.estado == 'lleno' %}
+                            <span class="badge badge-danger">Lleno</span>
+                        {% elif p.estado == 'cerrado' %}
+                            <span class="badge badge-gray">Cerrado</span>
+                        {% else %}
+                            <span class="badge badge-blue">{{ p.estado.capitalize() }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="table-actions">
+                            <button class="btn-icon btn-edit" onclick="editarParqueadero({{ p.id }}, '{{ p.nombre|replace("'", "\\'") }}', '{{ p.direccion|replace("'", "\\'") }}', {{ p.latitud }}, {{ p.longitud }}, {{ p.capacidad_total }}, {{ p.espacios_ocupados }}, '{{ p.tipo_vehiculo }}', {{ p.tarifa_inicial }}, {{ p.tarifa_hora }}, '{{ p.horario|replace("'", "\\'") }}', '{{ p.estado }}', '{{ p.administrador_id or '' }}', '{{ p.telefono_contacto or '' }}')" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon btn-delete" onclick="eliminarParqueadero({{ p.id }}, '{{ p.nombre|replace("'", "\\'") }}')" title="Eliminar">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL CREAR PARQUEADERO -->
+<div class="modal-overlay" id="modalCrearParqueadero">
+    <div class="modal-dialog" style="max-width: 650px;">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-plus-circle text-blue"></i> Crear Parqueadero</h2>
+            <button class="modal-close" onclick="cerrarModal('modalCrearParqueadero')">&times;</button>
+        </div>
+        <form action="{{ url_for('admin.parqueaderos_crear') }}" method="POST">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del Parqueadero *</label>
+                        <input type="text" name="nombre" class="form-control" required placeholder="Ej: Parqueadero Norte">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dirección / Ubicación *</label>
+                        <input type="text" name="direccion" class="form-control" required placeholder="Ej: Carrera 30 # 45-03">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Latitud (GPS) *</label>
+                        <input type="number" step="any" name="latitud" class="form-control" value="1.2136" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Longitud (GPS) *</label>
+                        <input type="number" step="any" name="longitud" class="form-control" value="-77.2811" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Capacidad Total *</label>
+                        <input type="number" name="capacidad_total" class="form-control" value="50" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Espacios Ocupados Iniciales</label>
+                        <input type="number" name="espacios_ocupados" class="form-control" value="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Vehículo *</label>
+                        <select name="tipo_vehiculo" class="form-select" required>
+                            <option value="ambos">Carro y Moto (Ambos)</option>
+                            <option value="carro">Solo Carros</option>
+                            <option value="moto">Solo Motos</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tarifa Inicial (COP) *</label>
+                        <input type="number" step="100" name="tarifa_inicial" class="form-control" value="3000" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tarifa por Hora (COP) *</label>
+                        <input type="number" step="100" name="tarifa_hora" class="form-control" value="2500" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Horario de Atención *</label>
+                        <input type="text" name="horario" class="form-control" value="Lunes a Sábado: 06:00 - 22:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado Inicial *</label>
+                        <select name="estado" class="form-select" required>
+                            <option value="disponible">Disponible</option>
+                            <option value="abierto">Abierto</option>
+                            <option value="casi_lleno">Casi Lleno</option>
+                            <option value="lleno">Lleno</option>
+                            <option value="cerrado">Cerrado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Operador Asignado</label>
+                        <select name="administrador_id" class="form-select">
+                            <option value="">-- Sin asignar --</option>
+                            {% for op in operadores %}
+                            <option value="{{ op.id }}">{{ op.nombre_completo }} ({{ op.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Teléfono de Contacto</label>
+                        <input type="tel" name="telefono_contacto" class="form-control" placeholder="601-3165000">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Parqueadero</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDITAR PARQUEADERO -->
+<div class="modal-overlay" id="modalEditarParqueadero">
+    <div class="modal-dialog" style="max-width: 650px;">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-edit text-blue"></i> Modificar Parqueadero</h2>
+            <button class="modal-close" onclick="cerrarModal('modalEditarParqueadero')">&times;</button>
+        </div>
+        <form id="formEditarParqueadero" method="POST">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del Parqueadero *</label>
+                        <input type="text" name="nombre" id="edit_p_nombre" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dirección *</label>
+                        <input type="text" name="direccion" id="edit_p_direccion" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Latitud (GPS) *</label>
+                        <input type="number" step="any" name="latitud" id="edit_p_latitud" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Longitud (GPS) *</label>
+                        <input type="number" step="any" name="longitud" id="edit_p_longitud" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Capacidad Total *</label>
+                        <input type="number" name="capacidad_total" id="edit_p_capacidad" class="form-control" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Espacios Ocupados *</label>
+                        <input type="number" name="espacios_ocupados" id="edit_p_ocupados" class="form-control" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Vehículo *</label>
+                        <select name="tipo_vehiculo" id="edit_p_tipo" class="form-select" required>
+                            <option value="ambos">Carro y Moto (Ambos)</option>
+                            <option value="carro">Solo Carros</option>
+                            <option value="moto">Solo Motos</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tarifa Inicial (COP) *</label>
+                        <input type="number" step="100" name="tarifa_inicial" id="edit_p_tarifa_ini" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tarifa por Hora (COP) *</label>
+                        <input type="number" step="100" name="tarifa_hora" id="edit_p_tarifa_hora" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Horario de Atención *</label>
+                        <input type="text" name="horario" id="edit_p_horario" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado *</label>
+                        <select name="estado" id="edit_p_estado" class="form-select" required>
+                            <option value="disponible">Disponible</option>
+                            <option value="abierto">Abierto</option>
+                            <option value="casi_lleno">Casi Lleno</option>
+                            <option value="lleno">Lleno</option>
+                            <option value="cerrado">Cerrado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Operador Asignado</label>
+                        <select name="administrador_id" id="edit_p_admin_id" class="form-select">
+                            <option value="">-- Sin asignar --</option>
+                            {% for op in operadores %}
+                            <option value="{{ op.id }}">{{ op.nombre_completo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Teléfono de Contacto</label>
+                        <input type="tel" name="telefono_contacto" id="edit_p_telefono" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Actualizar Parqueadero</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL ELIMINAR PARQUEADERO -->
+<div class="modal-overlay" id="modalEliminarParqueadero">
+    <div class="modal-dialog" style="max-width: 420px;">
+        <div class="modal-header">
+            <h2 class="modal-title text-danger"><i class="fas fa-exclamation-triangle"></i> Eliminar Parqueadero</h2>
+            <button class="modal-close" onclick="cerrarModal('modalEliminarParqueadero')">&times;</button>
+        </div>
+        <form id="formEliminarParqueadero" method="POST">
+            <div class="modal-body">
+                <p>¿Estás seguro de eliminar el parqueadero <strong id="delete_nombre_parqueadero"></strong>?</p>
+                <p class="text-muted" style="font-size: 0.825rem; margin-top: 0.5rem;">Las reservas asociadas a este parqueadero también serán eliminadas.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Eliminar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#tablaParqueaderos').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+        },
+        pageLength: 10,
+        responsive: true
+    });
+});
+
+function editarParqueadero(id, nombre, direccion, lat, lng, cap, ocup, tipo, tIni, tHora, horario, estado, adminId, tel) {
+    document.getElementById('formEditarParqueadero').action = '/admin/parqueaderos/' + id + '/editar';
+    document.getElementById('edit_p_nombre').value = nombre;
+    document.getElementById('edit_p_direccion').value = direccion;
+    document.getElementById('edit_p_latitud').value = lat;
+    document.getElementById('edit_p_longitud').value = lng;
+    document.getElementById('edit_p_capacidad').value = cap;
+    document.getElementById('edit_p_ocupados').value = ocup;
+    document.getElementById('edit_p_tipo').value = tipo;
+    document.getElementById('edit_p_tarifa_ini').value = tIni;
+    document.getElementById('edit_p_tarifa_hora').value = tHora;
+    document.getElementById('edit_p_horario').value = horario;
+    document.getElementById('edit_p_estado').value = estado;
+    document.getElementById('edit_p_admin_id').value = adminId;
+    document.getElementById('edit_p_telefono').value = tel;
+    abrirModal('modalEditarParqueadero');
+}
+
+function eliminarParqueadero(id, nombre) {
+    document.getElementById('formEliminarParqueadero').action = '/admin/parqueaderos/' + id + '/eliminar';
+    document.getElementById('delete_nombre_parqueadero').textContent = nombre;
+    abrirModal('modalEliminarParqueadero');
+}
+</script>
+{% endblock %}

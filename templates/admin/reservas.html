@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Reservas (ServerSide) - Park+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-calendar-check"></i> Reservas Generales (Server-Side)</h1>
+        <p class="page-subtitle">Paginación, búsqueda y ordenamiento procesados directamente en la base de datos PostgreSQL</p>
+    </div>
+    <button class="btn btn-primary" onclick="abrirModal('modalCrearReserva')">
+        <i class="fas fa-plus-circle"></i> Nueva Reserva Manual
+    </button>
+</div>
+
+<div class="table-container">
+    <div style="background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--blue-900); display: flex; align-items: center; gap: 0.6rem;">
+        <i class="fas fa-server text-blue" style="font-size: 1.1rem;"></i>
+        <span>Esta tabla está configurada con <strong>DataTables Server-Side Processing</strong>. La carga y filtrado se realizan bajo demanda en el servidor PostgreSQL para soportar grandes volúmenes de datos sin degradar el rendimiento.</span>
+    </div>
+
+    <table id="tablaReservasServerSide" class="dataTable display responsive nowrap" style="width:100%">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Código</th>
+                <th>Estudiante</th>
+                <th>Parqueadero</th>
+                <th>Fecha</th>
+                <th>Horario</th>
+                <th>Vehículo</th>
+                <th>Placa</th>
+                <th>Estado</th>
+                <th>Fecha Creación</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Los datos son provistos de forma asíncrona por /admin/api/reservas/serverside -->
+        </tbody>
+    </table>
+</div>
+
+<!-- MODAL CREAR RESERVA MANUAL -->
+<div class="modal-overlay" id="modalCrearReserva">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-calendar-plus text-blue"></i> Registrar Reserva Manual</h2>
+            <button class="modal-close" onclick="cerrarModal('modalCrearReserva')">&times;</button>
+        </div>
+        <form action="{{ url_for('admin.reservas_crear') }}" method="POST">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Estudiante *</label>
+                    <select name="estudiante_id" class="form-select" required>
+                        <option value="">-- Selecciona un estudiante --</option>
+                        {% for e in estudiantes %}
+                        <option value="{{ e.id }}">{{ e.nombre_completo }} ({{ e.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Parqueadero *</label>
+                    <select name="parqueadero_id" class="form-select" required>
+                        <option value="">-- Selecciona un parqueadero --</option>
+                        {% for p in todos_parqueaderos %}
+                        <option value="{{ p.id }}">{{ p.nombre }} - {{ p.espacios_disponibles }} cupos disponibles</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Fecha *</label>
+                        <input type="date" name="fecha" id="reserva_fecha" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hora Inicio *</label>
+                        <input type="time" name="hora_inicio" class="form-control" value="08:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hora Fin *</label>
+                        <input type="time" name="hora_finalizacion" class="form-control" value="12:00" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Vehículo *</label>
+                        <select name="tipo_vehiculo" class="form-select" required>
+                            <option value="carro">Carro</option>
+                            <option value="moto">Moto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Placa del Vehículo</label>
+                        <input type="text" name="placa_vehiculo" class="form-control" placeholder="Ej: ABC-123" style="text-transform: uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado Inicial *</label>
+                        <select name="estado" class="form-select" required>
+                            <option value="activa">Activa</option>
+                            <option value="completada">Completada</option>
+                            <option value="cancelada">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Crear Reserva</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDITAR RESERVA -->
+<div class="modal-overlay" id="modalEditarReserva">
+    <div class="modal-dialog" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-edit text-blue"></i> Modificar Estado de Reserva</h2>
+            <button class="modal-close" onclick="cerrarModal('modalEditarReserva')">&times;</button>
+        </div>
+        <form id="formEditarReserva" method="POST">
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem;">Reserva: <strong id="edit_reserva_codigo"></strong></p>
+                <div class="form-group">
+                    <label class="form-label">Estado de la Reserva *</label>
+                    <select name="estado" id="edit_reserva_estado" class="form-select" required>
+                        <option value="activa">Activa</option>
+                        <option value="completada">Completada</option>
+                        <option value="cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tipo de Vehículo</label>
+                    <select name="tipo_vehiculo" id="edit_reserva_tipo" class="form-select">
+                        <option value="carro">Carro</option>
+                        <option value="moto">Moto</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Placa</label>
+                    <input type="text" name="placa_vehiculo" id="edit_reserva_placa" class="form-control" style="text-transform: uppercase;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Actualizar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL ELIMINAR RESERVA -->
+<div class="modal-overlay" id="modalEliminarReserva">
+    <div class="modal-dialog" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2 class="modal-title text-danger"><i class="fas fa-trash"></i> Eliminar Reserva</h2>
+            <button class="modal-close" onclick="cerrarModal('modalEliminarReserva')">&times;</button>
+        </div>
+        <form id="formEliminarReserva" method="POST">
+            <div class="modal-body">
+                <p>¿Estás seguro de eliminar la reserva <strong id="delete_reserva_codigo"></strong> permanentemente?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Sí, Eliminar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tablaServerSide;
+
+$(document).ready(function() {
+    // Configurar fecha de hoy en el modal
+    const hoy = new Date().toISOString().split('T')[0];
+    const fechaInput = document.getElementById('reserva_fecha');
+    if (fechaInput) fechaInput.value = hoy;
+
+    // Inicialización DataTable con ServerSide activado
+    tablaServerSide = $('#tablaReservasServerSide').DataTable({
+        serverSide: true,
+        processing: true,
+        responsive: true,
+        order: [[0, 'desc']], // Ordenar por ID descendente
+        ajax: {
+            url: "{{ url_for('admin.reservas_serverside') }}",
+            type: "GET"
+        },
+        language: {
+            url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json"
+        },
+        columnDefs: [
+            { orderable: false, targets: [10] }, // Columna de acciones no ordenable
+            { className: "text-center", targets: [0, 8, 10] }
+        ],
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]]
+    });
+});
+
+function abrirModalEditarReserva(id, codigo, estado, placa, tipo) {
+    document.getElementById('formEditarReserva').action = '/admin/reservas/' + id + '/editar';
+    document.getElementById('edit_reserva_codigo').textContent = codigo;
+    document.getElementById('edit_reserva_estado').value = estado;
+    document.getElementById('edit_reserva_placa').value = placa;
+    document.getElementById('edit_reserva_tipo').value = tipo;
+    abrirModal('modalEditarReserva');
+}
+
+function confirmarEliminarReserva(id, codigo) {
+    document.getElementById('formEliminarReserva').action = '/admin/reservas/' + id + '/eliminar';
+    document.getElementById('delete_reserva_codigo').textContent = codigo;
+    abrirModal('modalEliminarReserva');
+}
+</script>
+{% endblock %}

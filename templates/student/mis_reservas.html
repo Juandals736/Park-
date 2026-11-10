@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Reservas - Park+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-ticket-alt"></i> Mis Reservas</h1>
+        <p class="page-subtitle">Historial de reservas de parqueadero y estado de cada solicitud</p>
+    </div>
+    <div>
+        <a href="{{ url_for('student.mapa') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Reserva
+        </a>
+    </div>
+</div>
+
+<!-- Filtros de Estado -->
+<div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <a href="{{ url_for('student.mis_reservas') }}" class="btn btn-sm {% if not filtro_estado %}btn-primary{% else %}btn-outline{% endif %}">
+        Todas ({{ reservas|length }})
+    </a>
+    <a href="{{ url_for('student.mis_reservas', estado='activa') }}" class="btn btn-sm {% if filtro_estado == 'activa' %}btn-primary{% else %}btn-outline{% endif %}">
+        <i class="fas fa-check-circle text-green"></i> Activas
+    </a>
+    <a href="{{ url_for('student.mis_reservas', estado='completada') }}" class="btn btn-sm {% if filtro_estado == 'completada' %}btn-primary{% else %}btn-outline{% endif %}">
+        <i class="fas fa-flag-checkered text-blue"></i> Completadas
+    </a>
+    <a href="{{ url_for('student.mis_reservas', estado='cancelada') }}" class="btn btn-sm {% if filtro_estado == 'cancelada' %}btn-primary{% else %}btn-outline{% endif %}">
+        <i class="fas fa-times-circle text-red"></i> Canceladas
+    </a>
+</div>
+
+{% if reservas|length == 0 %}
+<div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+    <div style="width: 64px; height: 64px; background: var(--blue-50); color: var(--blue-600); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 1rem;">
+        <i class="far fa-calendar-times"></i>
+    </div>
+    <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--gray-800); margin-bottom: 0.5rem;">No tienes reservas registradas</h3>
+    <p style="color: var(--text-muted); max-width: 420px; margin: 0 auto 1.5rem auto; font-size: 0.9rem;">
+        Encuentra el parqueadero más cercano en el mapa interactivo y reserva tu cupo en pocos segundos.
+    </p>
+    <a href="{{ url_for('student.mapa') }}" class="btn btn-primary">
+        <i class="fas fa-map-marked-alt"></i> Explorar Parqueaderos
+    </a>
+</div>
+{% else %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.25rem;">
+    {% for r in reservas %}
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid {% if r.estado == 'activa' %}var(--green-600){% elif r.estado == 'completada' %}var(--blue-600){% else %}var(--red-600){% endif %};">
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                <div>
+                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">CÓDIGO DE RESERVA</span>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: var(--blue-900); font-family: monospace;">
+                        {{ r.codigo_reserva }}
+                    </div>
+                </div>
+                <div>
+                    {% if r.estado == 'activa' %}
+                        <span class="badge badge-success"><i class="fas fa-check-circle"></i> Activa</span>
+                    {% elif r.estado == 'completada' %}
+                        <span class="badge badge-blue"><i class="fas fa-flag-checkered"></i> Completada</span>
+                    {% else %}
+                        <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Cancelada</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Información del Parqueadero -->
+            <div style="margin-bottom: 1rem;">
+                <div style="font-weight: 700; font-size: 1.05rem; color: var(--gray-800);">{{ r.parqueadero.nombre }}</div>
+                <div style="font-size: 0.825rem; color: var(--text-muted);"><i class="fas fa-map-marker-alt text-red"></i> {{ r.parqueadero.direccion }}</div>
+            </div>
+
+            <!-- Detalles de la Reserva (Requisitos Mínimos) -->
+            <div style="background: var(--gray-50); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.825rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <div>
+                    <span class="text-muted"><i class="far fa-calendar-alt"></i> Fecha:</span><br>
+                    <strong>{{ r.fecha.strftime('%d/%m/%Y') }}</strong>
+                </div>
+                <div>
+                    <span class="text-muted"><i class="far fa-clock"></i> Horario:</span><br>
+                    <strong>{{ r.hora_inicio.strftime('%H:%M') }} - {{ r.hora_finalizacion.strftime('%H:%M') }}</strong>
+                </div>
+                <div>
+                    <span class="text-muted"><i class="fas fa-car"></i> Vehículo:</span><br>
+                    <strong style="text-transform: capitalize;">{{ r.tipo_vehiculo }} ({{ r.placa_vehiculo or 'S/P' }})</strong>
+                </div>
+                <div>
+                    <span class="text-muted"><i class="fas fa-dollar-sign"></i> Costo Estimado:</span><br>
+                    <strong style="color: var(--blue-700);">${{ "{:,.0f}".format(r.costo_estimado or 0) }} COP</strong>
+                </div>
+                <div style="grid-column: span 2; border-top: 1px solid var(--gray-200); padding-top: 0.35rem;">
+                    <span class="text-muted"><i class="fas fa-info-circle"></i> Fecha de Creación:</span>
+                    <span>{{ r.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+            {% if r.estado == 'activa' %}
+            <button class="btn btn-sm btn-danger" onclick="confirmarCancelacion({{ r.id }}, '{{ r.codigo_reserva }}')">
+                <i class="fas fa-ban"></i> Cancelar Reserva
+            </button>
+            {% else %}
+            <span class="text-muted" style="font-size: 0.8rem;">Esta reserva no se puede modificar.</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- MODAL CONFIRMAR CANCELACIÓN -->
+<div class="modal-overlay" id="modalCancelarReserva">
+    <div class="modal-dialog" style="max-width: 420px;">
+        <div class="modal-header">
+            <h2 class="modal-title text-danger"><i class="fas fa-exclamation-triangle"></i> Cancelar Reserva</h2>
+            <button class="modal-close" onclick="cerrarModal('modalCancelarReserva')">&times;</button>
+        </div>
+        <form id="formCancelarReserva" method="POST">
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas cancelar la reserva <strong id="cancel_codigo_reserva"></strong>?</p>
+                <p class="text-muted" style="font-size: 0.825rem; margin-top: 0.5rem;">El cupo reservado quedará liberado inmediatamente para otros usuarios.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-modal-cancel">No, Regresar</button>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-times-circle"></i> Sí, Cancelar Reserva</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmarCancelacion(id, codigo) {
+    document.getElementById('formCancelarReserva').action = '/student/reservas/' + id + '/cancelar';
+    document.getElementById('cancel_codigo_reserva').textContent = codigo;
+    abrirModal('modalCancelarReserva');
+}
+</script>
+{% endblock %}

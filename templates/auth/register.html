@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Registro de Usuario - Park+{% endblock %}
+
+{% block extra_css %}
+<style>
+    html, body {
+        height: 100vh !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .main-content {
+        height: 100vh !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+    .flash-messages {
+        position: absolute;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        max-width: 480px;
+        width: 90%;
+    }
+    .register-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem 0.85rem;
+    }
+    @media (max-width: 580px) {
+        .register-grid {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+        .auth-card.auth-card-wide {
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <!-- Botón flotante para regresar a la Landing -->
+    <a href="{{ url_for('index') }}" class="btn-back-home" title="Volver al inicio">
+        <i class="fas fa-arrow-left"></i> <span>Volver a Park+</span>
+    </a>
+
+    <div class="auth-card auth-card-wide">
+        <div class="auth-header">
+            <div class="auth-icon-badge" style="background: linear-gradient(135deg, var(--green-600), var(--green-700));">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <h1 class="auth-title">Crear Cuenta</h1>
+            <p class="auth-subtitle">Regístrate para reservar parqueaderos en Park+</p>
+        </div>
+
+        <form action="{{ url_for('auth.register') }}" method="POST">
+            <div class="register-grid">
+                <!-- Nombre Completo -->
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label class="form-label" for="nombre_completo" style="font-size: 0.78rem; margin-bottom: 0.2rem;">
+                        <i class="fas fa-user text-muted"></i> Nombre Completo *
+                    </label>
+                    <input type="text" name="nombre_completo" id="nombre_completo" class="form-control"
+                        placeholder="Ej: Daniel Restrepo" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;" required autofocus>
+                </div>
+
+                <!-- Correo Electrónico -->
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label class="form-label" for="email" style="font-size: 0.78rem; margin-bottom: 0.2rem;">
+                        <i class="fas fa-envelope text-muted"></i> Correo Electrónico *
+                    </label>
+                    <input type="email" name="email" id="email" class="form-control"
+                        placeholder="usuario@universidad.edu.co" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;" required>
+                </div>
+
+                <!-- Teléfono Celular -->
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label class="form-label" for="telefono" style="font-size: 0.78rem; margin-bottom: 0.2rem;">
+                        <i class="fas fa-phone text-muted"></i> Teléfono Celular
+                    </label>
+                    <input type="tel" name="telefono" id="telefono" class="form-control"
+                        placeholder="Ej: 310 123 4567" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;">
+                </div>
+
+                <!-- Tipo de Rol informativo -->
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label class="form-label" style="font-size: 0.78rem; margin-bottom: 0.2rem;">
+                        <i class="fas fa-id-badge text-muted"></i> Tipo de Cuenta
+                    </label>
+                    <input type="text" class="form-control" value="Conductor / Estudiante" style="padding: 0.5rem 0.8rem; font-size: 0.85rem; background: var(--gray-100); color: var(--gray-600); cursor: not-allowed;" readonly>
+                </div>
+
+                <!-- Contraseña -->
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label class="form-label" for="password" style="font-size: 0.78rem; margin-bottom: 0.2rem;">
+                        <i class="fas fa-lock text-muted"></i> Contraseña *
+                    </label>
+                    <input type="password" name="password" id="password" class="form-control"
+                        placeholder="Mínimo 6 caracteres" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;" minlength="6" required>
+                </div>
+
+                <!-- Confirmar Contraseña -->
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label class="form-label" for="confirm_password" style="font-size: 0.78rem; margin-bottom: 0.2rem;">
+                        <i class="fas fa-check-double text-muted"></i> Confirmar Contraseña *
+                    </label>
+                    <input type="password" name="confirm_password" id="confirm_password" class="form-control"
+                        placeholder="Repite la contraseña" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;" minlength="6" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 1rem; padding: 0.65rem; font-size: 0.92rem; font-weight: 700; border-radius: 10px;">
+                <i class="fas fa-arrow-right"></i> Completar Registro
+            </button>
+        </form>
+
+        <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); text-align: center; font-size: 0.82rem; color: var(--gray-600);">
+            ¿Ya tienes una cuenta? <a href="{{ url_for('auth.login') }}" style="font-weight: 700; color: var(--green-600);">Inicia sesión aquí</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
