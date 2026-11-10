@@ -1,257 +1,120 @@
-from datetime import date, time, datetime, timedelta
+import os
+import json
+from datetime import date, time, datetime
 from models import db, Usuario, Parqueadero, Reserva
 
-def seed_all():
-    # 1. Crear Usuarios de prueba si no existen
-    usuarios_data = [
-        {
-            'email': 'admin@parqueaderos.com',
-            'nombre': 'Carlos Rodríguez (Administrador General)',
-            'password': 'Admin123!',
-            'rol': 'admin',
-            'telefono': '3001234567'
-        },
-        {
-            'email': 'operador1@parqueaderos.com',
-            'nombre': 'Laura Martínez (Operador Central)',
-            'password': 'Operador123!',
-            'rol': 'admin_parqueadero',
-            'telefono': '3109876543'
-        },
-        {
-            'email': 'operador2@parqueaderos.com',
-            'nombre': 'Andrés Gómez (Operador Norte)',
-            'password': 'Operador123!',
-            'rol': 'admin_parqueadero',
-            'telefono': '3156781234'
-        },
-        {
-            'email': 'estudiante1@universidad.edu.co',
-            'nombre': 'Mariana Silva Gómez',
-            'password': 'Estudiante123!',
-            'rol': 'estudiante',
-            'telefono': '3204567890'
-        },
-        {
-            'email': 'estudiante2@universidad.edu.co',
-            'nombre': 'Juan Camilo Castro',
-            'password': 'Estudiante123!',
-            'rol': 'estudiante',
-            'telefono': '3015556677'
-        },
-        {
-            'email': 'estudiante3@universidad.edu.co',
-            'nombre': 'Valentina Ríos Ospina',
-            'password': 'Estudiante123!',
-            'rol': 'estudiante',
-            'telefono': '3182223344'
-        }
-    ]
+def parse_date(d_str):
+    if not d_str:
+        return None
+    return datetime.fromisoformat(d_str).date() if 'T' in d_str or len(d_str) > 10 else date.fromisoformat(d_str)
 
-    usuarios_dict = {}
+def parse_time(t_str):
+    if not t_str:
+        return None
+    parts = t_str.split(':')
+    return time(int(parts[0]), int(parts[1]), int(parts[2]) if len(parts) > 2 else 0)
+
+def parse_datetime(dt_str):
+    if not dt_str:
+        return datetime.utcnow()
+    return datetime.fromisoformat(dt_str)
+
+def seed_all():
+    """
+    Importa la base de datos completa exacta (63 usuarios, 25 parqueaderos y 184 reservas)
+    desde data_backup.json para que Render o cualquier máquina tenga exactamente la BD de pgAdmin.
+    """
+    backup_file = os.path.join(os.path.dirname(__file__), 'data_backup.json')
+    if not os.path.exists(backup_file):
+        print(f"[*] Archivo {backup_file} no encontrado.")
+        return
+
+    with open(backup_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    # 1. Importar Usuarios
+    usuarios_data = data.get('usuarios', [])
     for u in usuarios_data:
-        usuario = Usuario.query.filter_by(email=u['email']).first()
+        usuario = Usuario.query.filter_by(id=u['id']).first() or Usuario.query.filter_by(email=u['email']).first()
         if not usuario:
             usuario = Usuario(
+                id=u['id'],
                 email=u['email'],
-                nombre_completo=u['nombre'],
+                nombre_completo=u['nombre_completo'],
+                password_hash=u['password_hash'],
                 rol=u['rol'],
-                telefono=u['telefono'],
-                activo=True
+                telefono=u.get('telefono'),
+                activo=u.get('activo', True),
+                fecha_registro=parse_datetime(u.get('fecha_registro'))
             )
-            usuario.set_password(u['password'])
             db.session.add(usuario)
-            db.session.flush()
-        usuarios_dict[u['email']] = usuario
+        else:
+            usuario.password_hash = u['password_hash']
+            usuario.rol = u['rol']
+            usuario.nombre_completo = u['nombre_completo']
 
     db.session.commit()
 
-    # 2. Crear Parqueaderos con coordenadas y detalles completos
-    op1 = usuarios_dict.get('operador1@parqueaderos.com')
-    op2 = usuarios_dict.get('operador2@parqueaderos.com')
-
-    parqueaderos_data = [
-        {
-            'nombre': 'ParkMas Centro',
-            'direccion': 'Carrera 24 # 18-42, Centro',
-            'latitud': 1.195923,
-            'longitud': -77.292206,
-            'capacidad_total': 53,
-            'espacios_ocupados': 15,
-            'tipo_vehiculo': 'ambos',
-            'tarifa_inicial': 1500.0,
-            'tarifa_hora': 3500.0,
-            'horario': '24 horas',
-            'estado': 'disponible',
-            'administrador_id': op1.id if op1 else None,
-            'telefono_contacto': '6027230500',
-            'descripcion': 'Parqueadero céntrico en Pasto con vigilancia continua y fácil acceso.'
-        },
-        {
-            'nombre': 'Parqueadero Las Cuadras',
-            'direccion': 'Calle 18 # 31-25, Las Cuadras',
-            'latitud': 1.218896,
-            'longitud': -77.296911,
-            'capacidad_total': 44,
-            'espacios_ocupados': 7,
-            'tipo_vehiculo': 'ambos',
-            'tarifa_inicial': 3000.0,
-            'tarifa_hora': 2500.0,
-            'horario': '24 horas',
-            'estado': 'disponible',
-            'administrador_id': op1.id if op1 else None,
-            'telefono_contacto': '6027384984',
-            'descripcion': 'Parqueadero en zona Las Cuadras, ideal para estudiantes y profesionales en Pasto.'
-        },
-        {
-            'nombre': 'Parking Maridiaz',
-            'direccion': 'Calle 17 # 33-18, Maridiaz',
-            'latitud': 1.212623,
-            'longitud': -77.289781,
-            'capacidad_total': 77,
-            'espacios_ocupados': 25,
-            'tipo_vehiculo': 'ambos',
-            'tarifa_inicial': 3000.0,
-            'tarifa_hora': 2200.0,
-            'horario': '06:30 - 23:00',
-            'estado': 'disponible',
-            'administrador_id': op2.id if op2 else None,
-            'telefono_contacto': '6027876152',
-            'descripcion': 'Ubicado en el sector Maridiaz de Pasto, con amplias bahías para carros y motos.'
-        },
-        {
-            'nombre': 'ParkMas Pandiaco',
-            'direccion': 'Calle 19A # 42-16, Pandiaco',
-            'latitud': 1.197944,
-            'longitud': -77.272679,
-            'capacidad_total': 41,
-            'espacios_ocupados': 9,
-            'tipo_vehiculo': 'ambos',
-            'tarifa_inicial': 2500.0,
-            'tarifa_hora': 3500.0,
-            'horario': '06:30 - 23:00',
-            'estado': 'disponible',
-            'administrador_id': op2.id if op2 else None,
-            'telefono_contacto': '6027572623',
-            'descripcion': 'Servicio de estacionamiento en el sector Pandiaco de Pasto con atención personalizada.'
-        },
-        {
-            'nombre': 'Parqueadero Mijitayo',
-            'direccion': 'Avenida Mijitayo # 15-60',
-            'latitud': 1.203035,
-            'longitud': -77.267726,
-            'capacidad_total': 76,
-            'espacios_ocupados': 20,
-            'tipo_vehiculo': 'ambos',
-            'tarifa_inicial': 2500.0,
-            'tarifa_hora': 1800.0,
-            'horario': '06:30 - 23:00',
-            'estado': 'disponible',
-            'administrador_id': op1.id if op1 else None,
-            'telefono_contacto': '6027685142',
-            'descripcion': 'Estacionamiento cómodo y seguro sobre la Avenida Mijitayo en Pasto.'
-        }
-    ]
-
-    parqueaderos_dict = {}
+    # 2. Importar Parqueaderos
+    parqueaderos_data = data.get('parqueaderos', [])
     for p in parqueaderos_data:
-        parq = Parqueadero.query.filter_by(nombre=p['nombre']).first()
-        if not parq:
-            parq = Parqueadero(**p)
-            parq.actualizar_disponibilidad()
-            db.session.add(parq)
-            db.session.flush()
-        parqueaderos_dict[p['nombre']] = parq
+        parqueadero = Parqueadero.query.filter_by(id=p['id']).first()
+        if not parqueadero:
+            parqueadero = Parqueadero(
+                id=p['id'],
+                nombre=p['nombre'],
+                direccion=p['direccion'],
+                latitud=p['latitud'],
+                longitud=p['longitud'],
+                capacidad_total=p['capacidad_total'],
+                espacios_ocupados=p['espacios_ocupados'],
+                espacios_disponibles=p['espacios_disponibles'],
+                tipo_vehiculo=p['tipo_vehiculo'],
+                tarifa_inicial=p['tarifa_inicial'],
+                tarifa_hora=p['tarifa_hora'],
+                horario=p['horario'],
+                estado=p['estado'],
+                administrador_id=p.get('administrador_id'),
+                descripcion=p.get('descripcion'),
+                telefono_contacto=p.get('telefono_contacto'),
+                fecha_creacion=parse_datetime(p.get('fecha_creacion'))
+            )
+            db.session.add(parqueadero)
 
     db.session.commit()
 
-    # 3. Crear Reservas de demostración
-    est1 = usuarios_dict.get('estudiante1@universidad.edu.co')
-    est2 = usuarios_dict.get('estudiante2@universidad.edu.co')
-    est3 = usuarios_dict.get('estudiante3@universidad.edu.co')
-
-    p_centro = parqueaderos_dict.get('ParkMas Centro') or Parqueadero.query.filter_by(nombre='ParkMas Centro').first()
-    p_cuadras = parqueaderos_dict.get('Parqueadero Las Cuadras') or Parqueadero.query.filter_by(nombre='Parqueadero Las Cuadras').first()
-    p_maridiaz = parqueaderos_dict.get('Parking Maridiaz') or Parqueadero.query.filter_by(nombre='Parking Maridiaz').first()
-
-    hoy = date.today()
-    ayer = hoy - timedelta(days=1)
-    manana = hoy + timedelta(days=1)
-
-    reservas_data = [
-        {
-            'codigo_reserva': 'RES-948211',
-            'estudiante_id': est1.id,
-            'parqueadero_id': p_centro.id if p_centro else None,
-            'fecha': hoy,
-            'hora_inicio': time(8, 0),
-            'hora_finalizacion': time(12, 30),
-            'tipo_vehiculo': 'carro',
-            'placa_vehiculo': 'KHM-452',
-            'estado': 'activa',
-            'costo_estimado': 16100.0
-        },
-        {
-            'codigo_reserva': 'RES-738192',
-            'estudiante_id': est2.id,
-            'parqueadero_id': p_maridiaz.id if p_maridiaz else None,
-            'fecha': hoy,
-            'hora_inicio': time(9, 30),
-            'hora_finalizacion': time(14, 0),
-            'tipo_vehiculo': 'moto',
-            'placa_vehiculo': 'QWR-88F',
-            'estado': 'activa',
-            'costo_estimado': 8550.0
-        },
-        {
-            'codigo_reserva': 'RES-615243',
-            'estudiante_id': est3.id,
-            'parqueadero_id': p_cuadras.id if p_cuadras else None,
-            'fecha': manana,
-            'hora_inicio': time(7, 0),
-            'hora_finalizacion': time(11, 0),
-            'tipo_vehiculo': 'carro',
-            'placa_vehiculo': 'BVT-109',
-            'estado': 'activa',
-            'costo_estimado': 16000.0
-        },
-        {
-            'codigo_reserva': 'RES-554433',
-            'estudiante_id': est1.id,
-            'parqueadero_id': p_centro.id if p_centro else None,
-            'fecha': ayer,
-            'hora_inicio': time(14, 0),
-            'hora_finalizacion': time(18, 0),
-            'tipo_vehiculo': 'carro',
-            'placa_vehiculo': 'KHM-452',
-            'estado': 'completada',
-            'costo_estimado': 14700.0
-        },
-        {
-            'codigo_reserva': 'RES-112233',
-            'estudiante_id': est2.id,
-            'parqueadero_id': p_cuadras.id if p_cuadras else None,
-            'fecha': ayer,
-            'hora_inicio': time(10, 0),
-            'hora_finalizacion': time(12, 0),
-            'tipo_vehiculo': 'carro',
-            'placa_vehiculo': 'TLX-391',
-            'estado': 'cancelada',
-            'costo_estimado': 9100.0
-        }
-    ]
-
+    # 3. Importar Reservas
+    reservas_data = data.get('reservas', [])
     for r in reservas_data:
-        res = Reserva.query.filter_by(codigo_reserva=r['codigo_reserva']).first()
-        if not res:
-            res = Reserva(**r)
-            db.session.add(res)
+        reserva = Reserva.query.filter_by(codigo_reserva=r['codigo_reserva']).first()
+        if not reserva:
+            reserva = Reserva(
+                id=r['id'],
+                codigo_reserva=r['codigo_reserva'],
+                estudiante_id=r['estudiante_id'],
+                parqueadero_id=r['parqueadero_id'],
+                fecha=parse_date(r['fecha']),
+                hora_inicio=parse_time(r['hora_inicio']),
+                hora_finalizacion=parse_time(r['hora_finalizacion']),
+                tipo_vehiculo=r.get('tipo_vehiculo', 'carro'),
+                placa_vehiculo=r.get('placa_vehiculo'),
+                estado=r.get('estado', 'activa'),
+                notas=r.get('notas'),
+                costo_estimado=r.get('costo_estimado', 0.0),
+                fecha_creacion=parse_datetime(r.get('fecha_creacion'))
+            )
+            db.session.add(reserva)
 
     db.session.commit()
-    print("Base de datos inicializada y poblada exitosamente.")
 
-if __name__ == '__main__':
-    from app import app
-    with app.app_context():
-        db.create_all()
-        seed_all()
+    # 4. Ajustar secuencias en PostgreSQL si aplica
+    try:
+        if 'postgresql' in str(db.engine.url):
+            db.session.execute(db.text("SELECT setval(pg_get_serial_sequence('usuarios', 'id'), coalesce(max(id), 1)) FROM usuarios;"))
+            db.session.execute(db.text("SELECT setval(pg_get_serial_sequence('parqueaderos', 'id'), coalesce(max(id), 1)) FROM parqueaderos;"))
+            db.session.execute(db.text("SELECT setval(pg_get_serial_sequence('reservas', 'id'), coalesce(max(id), 1)) FROM reservas;"))
+            db.session.commit()
+    except Exception as e:
+        print("[*] Ajuste de secuencias (SQLite/PostgreSQL):", e)
+
+    print(f"¡Base de datos restaurada con éxito: {len(usuarios_data)} usuarios, {len(parqueaderos_data)} parqueaderos, {len(reservas_data)} reservas!")
