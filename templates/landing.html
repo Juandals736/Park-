@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Park+ | Tu Parqueadero al Instante</title>
-    
+
     <!-- Meta tags PWA & Móvil -->
     <meta name="description" content="Park+ te permite encontrar cupos disponibles en tiempo real con geolocalización GPS, rutas en el mapa y reserva al instante.">
     <meta name="theme-color" content="#2563eb">
@@ -50,15 +50,11 @@
                 <li><a href="#inicio">Inicio</a></li>
                 <li><a href="#ventajas">Ventajas</a></li>
                 <li><a href="#como-funciona">Cómo Funciona</a></li>
-                <li><a href="#descargar-app"><i class="fas fa-mobile-screen"></i> App Móvil</a></li>
             </ul>
 
             <!-- Acciones -->
             <div class="landing-nav-actions">
-                <button type="button" class="btn-app-install-nav" id="btnInstallAppHero" title="Instalar en tu teléfono">
-                    <i class="fas fa-download"></i> <span>Instalar App</span>
-                </button>
-
+                
                 {% if current_user.is_authenticated %}
                     {% if current_user.is_admin %}
                         <a href="{{ url_for('admin.dashboard') }}" class="btn-gradient-nav">
@@ -98,11 +94,11 @@
                     <span class="hero-pill-pulse"></span>
                     <span>Mapa GPS y rutas en tiempo real</span>
                 </div>
-                
+
                 <h1 class="hero-title">
                     Estaciona sin vueltas con <span class="highlight">Park+</span>
                 </h1>
-                
+
                 <p class="hero-subtitle">
                     Descubre cupos disponibles en vivo, traza tu ruta de llegada directamente en el mapa y reserva tu lugar para carro o moto al instante.
                 </p>
@@ -117,9 +113,6 @@
                             <i class="fas fa-arrow-right-to-bracket"></i> Iniciar Sesión para Ver Mapa
                         </a>
                     {% endif %}
-                    <a href="#descargar-app" class="btn-hero-outline">
-                        <i class="fas fa-mobile-screen"></i> Descargar App
-                    </a>
                 </div>
 
                 <!-- Métricas Rápidas -->
@@ -143,7 +136,7 @@
             <div class="hero-visual animate-fade-in delay-1">
                 <div class="phone-mockup-wrapper animate-float">
                     <div class="phone-card-glow"></div>
-                    
+
                     <div class="phone-screen-inner">
                         <div class="phone-top-bar">
                             <div class="phone-brand">
@@ -247,7 +240,7 @@
         </div>
     </section>
 
-    <!-- SECCIÓN CÓMO FUNCIONA (PASOS) -->
+    <!-- SECCIÓN CÓMO FUN... (truncated for brevity) -->
     <section class="landing-steps" id="como-funciona">
         <div class="section-header">
             <span class="section-tag"><i class="fas fa-route"></i> En 3 Pasos</span>
@@ -273,58 +266,6 @@
         </div>
     </section>
 
-    <!-- SECCIÓN DESCARGA EN MÓVIL (PWA) -->
-    <section class="landing-download" id="descargar-app">
-        <div class="download-container">
-            <div class="download-content">
-                <span class="download-tag"><i class="fas fa-mobile-screen"></i> App Móvil</span>
-                <h2 class="download-title">Descarga Park+ en tu Teléfono</h2>
-                <p class="download-desc">
-                    Instala nuestra aplicación con 1 solo toque. Accede a tu mapa y a tus reservas directo desde tu pantalla de inicio sin descargas pesadas de tienda.
-                </p>
-
-                <div class="download-actions-row">
-                    <button type="button" class="btn-install-app pulse-btn" id="btnInstallAppSection">
-                        <i class="fas fa-download text-blue"></i> Instalar en este Dispositivo
-                    </button>
-                </div>
-
-                <p class="install-help-text">
-                    <i class="fas fa-apple-whole"></i> En iPhone: Toca <strong>Compartir</strong> en Safari y elige <strong>"Añadir a pantalla de inicio"</strong>.
-                </p>
-            </div>
-
-            <div class="download-badge-box animate-float">
-                <div class="app-icon-preview">
-                    <i class="fas fa-parking"></i>
-                    <span>Park<strong>+</strong></span>
-                </div>
-                <p style="margin: 0.75rem 0 0; font-size: 0.85rem; opacity: 0.85;">Listo para instalar en Android e iOS</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- BANNER FLOTANTE INFERIOR PARA MÓVILES (INSTALACIÓN RÁPIDA PWA) -->
-    <div class="mobile-install-banner" id="mobileInstallBanner">
-        <div class="banner-left">
-            <div class="banner-icon">
-                <i class="fas fa-parking"></i>
-            </div>
-            <div class="banner-text">
-                <h5>Instalar Park+</h5>
-                <p>Accede en 1 toque desde tu pantalla</p>
-            </div>
-        </div>
-        <div class="banner-right">
-            <button type="button" class="btn-banner-install" id="btnBannerInstall">
-                Instalar
-            </button>
-            <button type="button" class="btn-banner-close" id="btnBannerClose" aria-label="Cerrar">
-                &times;
-            </button>
-        </div>
-    </div>
-
     <!-- FOOTER -->
     <footer class="landing-footer">
         <div class="footer-container">
@@ -346,7 +287,6 @@
                     <li><a href="#inicio">Inicio</a></li>
                     <li><a href="#ventajas">Ventajas</a></li>
                     <li><a href="#como-funciona">Cómo Funciona</a></li>
-                    <li><a href="#descargar-app">Descargar App</a></li>
                 </ul>
             </div>
 
@@ -370,7 +310,7 @@
 
         <div class="footer-bottom">
             <div>
-                &copy; 2026 <strong>Park+</strong>. Todos los derechos reservados.
+                © 2026 <strong>Park+</strong>. Todos los derechos reservados.
             </div>
             <div style="display: flex; gap: 1rem; font-size: 1.1rem;">
                 <a href="#" style="color: var(--gray-400);"><i class="fab fa-facebook"></i></a>
