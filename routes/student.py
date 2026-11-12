@@ -1,8 +1,9 @@
-from datetime import datetime, date, time, timezone
+from datetime import datetime, date, time, timezone, timedelta
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 from models import db, Parqueadero, Reserva
 from utils.decorators import role_required
+import qrcode, os
 
 student_bp = Blueprint('student', __name__, url_prefix='/student')
 
@@ -83,7 +84,11 @@ def crear_reserva():
         hora_finalizacion=hora_fin_obj,
         tipo_vehiculo=tipo_vehiculo,
         placa_vehiculo=placa,
-        estado='activa',
+        # nuevos campos
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+        is_active=False,
+        payment_status='pending',
+        estado='pendiente',
         notas=notas,
         costo_estimado=costo_estimado
     )
@@ -104,18 +109,32 @@ def mis_reservas():
     filtro_estado = request.args.get('estado', '')
     query = Reserva.query.filter_by(estudiante_id=current_user.id)
 
-    if filtro_estado in ['activa', 'completada', 'cancelada']:
+    if filtro_estado in ['activa', 'completada', 'cancelada', 'pendiente']:
         query = query.filter_by(estado=filtro_estado)
 
     reservas = query.order_by(Reserva.fecha.desc(), Reserva.hora_inicio.desc()).all()
     return render_template('student/mis_reservas.html', reservas=reservas, filtro_estado=filtro_estado)
 
+# Detalle de reserva con QR y temporizador
+@student_bp.route('/reservas/<int:id>/detalle')
+def detalle_reserva(id):
+    reserva = Reserva.query.filter_by(id=id, estudiante_id=current_user.id).first_or_404()
+    qr_dir = os.path.join('static', 'qrcodes')
+    qr_filename = f"{reserva.codigo_reserva}.png"
+    qr_path = os.path.join(qr_dir, qr_filename)
+    full_qr_path = os.path.join('C:\\Users\\RYZEN\\Desktop\\Gestion-parqueaderos', qr_path)
+    if not os.path.isfile(full_qr_path):
+        os.makedirs(os.path.dirname(full_qr_path), exist_ok=True)
+        img = qrcode.make(reserva.codigo_reserva)
+        img.save(full_qr_path)
+    return render_template('student/reserva_detalle.html', reserva=reserva, qr_path='/' + qr_path.replace('\\\\', '/'))
+
 @student_bp.route('/reservas/<int:id>/cancelar', methods=['POST'])
 def cancelar_reserva(id):
     reserva = Reserva.query.filter_by(id=id, estudiante_id=current_user.id).first_or_404()
 
-    if reserva.estado != 'activa':
-        flash('Solo puedes cancelar reservas que se encuentren activas.', 'warning')
+    if reserva.estado not in ('activa', 'pendiente'):
+        flash('Solo puedes cancelar reservas activas o pendientes.', 'warning')
         return redirect(url_for('student.mis_reservas'))
 
     reserva.estado = 'cancelada'

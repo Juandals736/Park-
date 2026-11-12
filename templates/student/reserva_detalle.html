@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Detalle de Reserva - Park+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-ticket-alt"></i> Reserva {{ reserva.codigo_reserva }}</h1>
+        <p class="page-subtitle">Detalle completo de tu reserva</p>
+    </div>
+    <a href="{{ url_for('student.mis_reservas') }}" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Volver</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 800px; margin: auto;">
+
+    <!-- Columna izquierda: Info + Timer -->
+    <div class="card">
+        <h4 style="margin-bottom: 1rem;"><i class="fas fa-info-circle text-blue"></i> Información de la reserva</h4>
+        <div style="font-size: 0.9rem; line-height: 1.8;">
+            <div><strong>Parqueadero:</strong> {{ reserva.parqueadero.nombre }}</div>
+            <div><strong>Dirección:</strong> {{ reserva.parqueadero.direccion }}</div>
+            <div><strong>Fecha:</strong> {{ reserva.fecha.strftime('%d/%m/%Y') }}</div>
+            <div><strong>Horario:</strong> {{ reserva.hora_inicio.strftime('%H:%M') }} - {{ reserva.hora_finalizacion.strftime('%H:%M') }}</div>
+            <div><strong>Vehículo:</strong> {{ reserva.tipo_vehiculo }} ({{ reserva.placa_vehiculo or 'S/P' }})</div>
+            <div><strong>Costo estimado:</strong> ${{ "{:,.0f}".format(reserva.costo_estimado or 0) }} COP</div>
+        </div>
+
+        <!-- Temporizador -->
+        {% if reserva.estado == 'pendiente' and reserva.expires_at %}
+        <div style="background: #fff8e1; border: 1px solid #ffcc02; border-radius: 8px; padding: 1rem; margin-top: 1.25rem; text-align: center;">
+            <div style="font-size: 0.85rem; font-weight: 700; color: #e65100; margin-bottom: 0.5rem;">
+                <i class="fas fa-stopwatch"></i> Tiempo restante para confirmar
+            </div>
+            <div id="timer" style="font-size: 2rem; font-weight: 800; color: #bf360c; font-family: monospace;"></div>
+            <p style="font-size: 0.75rem; color: #795548; margin-top: 0.5rem;">La reserva se activará automáticamente al finalizar el temporizador.</p>
+        </div>
+        {% elif reserva.estado == 'activa' %}
+        <div style="background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 8px; padding: 1rem; margin-top: 1.25rem; text-align: center;">
+            <span class="badge badge-success" style="font-size: 1rem; padding: 0.5rem 1rem;"><i class="fas fa-check-circle"></i> Reserva Activa</span>
+        </div>
+        {% elif reserva.estado == 'cancelada' %}
+        <div style="background: #ffebee; border: 1px solid #ef5350; border-radius: 8px; padding: 1rem; margin-top: 1.25rem; text-align: center;">
+            <span class="badge badge-danger" style="font-size: 1rem; padding: 0.5rem 1rem;"><i class="fas fa-times-circle"></i> Reserva Cancelada</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Columna derecha: QR -->
+    <div class="card" style="text-align: center;">
+        <h4 style="margin-bottom: 1rem;"><i class="fas fa-qrcode text-blue"></i> Código QR</h4>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Presenta este código QR al llegar al parqueadero para validar tu reserva.
+        </p>
+        <img src="{{ qr_path }}" alt="QR {{ reserva.codigo_reserva }}" style="max-width: 220px; border: 2px solid var(--border-color); border-radius: 8px; padding: 8px; background: white;"/>
+        <div style="margin-top: 0.75rem; font-size: 0.85rem; font-weight: 700; color: var(--blue-900); font-family: monospace;">
+            {{ reserva.codigo_reserva }}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{% if reserva.estado == 'pendiente' and reserva.expires_at %}
+(function() {
+    var expiresAt = new Date("{{ reserva.expires_at.isoformat() }}");
+    var timerEl = document.getElementById('timer');
+    function tick() {
+        var now = new Date();
+        var diff = expiresAt - now;
+        if (diff <= 0) {
+            timerEl.textContent = '¡Tiempo expirado!';
+            timerEl.style.color = '#b71c1c';
+        } else {
+            var mins = Math.floor(diff / 60000);
+            var secs = Math.floor((diff % 60000) / 1000);
+            timerEl.textContent = mins + 'm ' + (secs < 10 ? '0' : '') + secs + 's';
+        }
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+{% endif %}
+</script>
+{% endblock %}

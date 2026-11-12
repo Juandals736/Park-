@@ -5,28 +5,27 @@
 {% block content %}
 <div class="page-header">
     <div>
-        <h1 class="page-title"><i class="fas fa-list-alt"></i> Reservas de tus Parqueaderos</h1>
-        <p class="page-subtitle">Consulta y gestiona las reservas realizadas por los estudiantes</p>
+        <h1 class="page-title"><i class="fas fa-list-alt"></i> Reservas de {{ parqueadero.nombre }}</h1>
+        <p class="page-subtitle">Gestiona las solicitudes de reserva de tu parqueadero ({{ parqueadero.direccion }})</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ url_for('parking_admin.dashboard') }}" class="btn btn-outline">
+            <i class="fas fa-arrow-left"></i> Panel
+        </a>
+        <a href="{{ url_for('parking_admin.escanear_qr') }}" class="btn btn-primary">
+            <i class="fas fa-qrcode"></i> Escanear QR
+        </a>
     </div>
 </div>
 
 <!-- Filtros Rápidos -->
 <div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
     <form method="GET" action="{{ url_for('parking_admin.reservas') }}" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 200px;">
-            <label class="form-label">Filtrar por Parqueadero</label>
-            <select name="parqueadero_id" class="form-select">
-                <option value="">-- Todos los Parqueaderos --</option>
-                {% for p in parqueaderos %}
-                <option value="{{ p.id }}" {% if parqueadero_filtro == p.id|string %}selected{% endif %}>{{ p.nombre }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div style="flex: 1; min-width: 180px;">
+        <div style="flex: 1; min-width: 240px;">
             <label class="form-label">Filtrar por Estado</label>
             <select name="estado" class="form-select">
                 <option value="">-- Todos los Estados --</option>
+                <option value="pendiente" {% if estado_filtro == 'pendiente' %}selected{% endif %}>Pendientes (Temporizador 15m)</option>
                 <option value="activa" {% if estado_filtro == 'activa' %}selected{% endif %}>Activas</option>
                 <option value="completada" {% if estado_filtro == 'completada' %}selected{% endif %}>Completadas</option>
                 <option value="cancelada" {% if estado_filtro == 'cancelada' %}selected{% endif %}>Canceladas</option>
@@ -34,8 +33,8 @@
         </div>
 
         <div>
-            <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Aplicar Filtros</button>
-            <a href="{{ url_for('parking_admin.reservas') }}" class="btn btn-outline">Limpiar</a>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
+            <a href="{{ url_for('parking_admin.reservas') }}" class="btn btn-outline">Ver Todas</a>
         </div>
     </form>
 </div>
@@ -72,7 +71,14 @@
                 </td>
                 <td><strong>{{ r.placa_vehiculo or 'N/A' }}</strong></td>
                 <td>
-                    {% if r.estado == 'activa' %}
+                    {% if r.estado == 'pendiente' %}
+                        <span class="badge badge-amber"><i class="fas fa-hourglass-half"></i> Pendiente</span>
+                        {% if r.expires_at %}
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #b45309; margin-top: 0.3rem;">
+                            <i class="fas fa-stopwatch"></i> <span class="op-timer" data-expires="{{ r.expires_at.isoformat() }}"></span>
+                        </div>
+                        {% endif %}
+                    {% elif r.estado == 'activa' %}
                         <span class="badge badge-success"><i class="fas fa-check-circle"></i> Activa</span>
                     {% elif r.estado == 'completada' %}
                         <span class="badge badge-blue"><i class="fas fa-flag-checkered"></i> Completada</span>
@@ -81,18 +87,18 @@
                     {% endif %}
                 </td>
                 <td>
-                    <div style="display: flex; gap: 0.35rem;">
-                        {% if r.estado == 'activa' %}
+                    <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                        {% if r.estado in ['pendiente', 'activa'] %}
                         <form action="{{ url_for('parking_admin.cambiar_estado_reserva', id=r.id) }}" method="POST" style="display:inline;">
                             <input type="hidden" name="estado" value="completada">
-                            <button type="submit" class="btn btn-sm btn-outline" title="Marcar como Completada">
-                                <i class="fas fa-check text-green"></i> Completar
+                            <button type="submit" class="btn btn-sm btn-primary" title="Marcar como Completada">
+                                <i class="fas fa-check"></i> Validar / Completar
                             </button>
                         </form>
                         <form action="{{ url_for('parking_admin.cambiar_estado_reserva', id=r.id) }}" method="POST" style="display:inline;">
                             <input type="hidden" name="estado" value="cancelada">
-                            <button type="submit" class="btn btn-sm btn-outline" title="Cancelar Reserva">
-                                <i class="fas fa-times text-red"></i> Cancelar
+                            <button type="submit" class="btn btn-sm btn-outline text-danger" title="Cancelar Reserva">
+                                <i class="fas fa-times"></i> Cancelar
                             </button>
                         </form>
                         {% else %}
@@ -118,6 +124,25 @@ $(document).ready(function() {
         responsive: true,
         order: [[3, 'desc']]
     });
+
+    // Actualización en tiempo real de los temporizadores de reservas pendientes
+    function tickTimers() {
+        document.querySelectorAll('.op-timer').forEach(function(el) {
+            var expiresAt = new Date(el.dataset.expires);
+            var now = new Date();
+            var diff = expiresAt - now;
+            if (diff <= 0) {
+                el.textContent = '¡Expirado!';
+                el.style.color = '#dc2626';
+            } else {
+                var mins = Math.floor(diff / 60000);
+                var secs = Math.floor((diff % 60000) / 1000);
+                el.textContent = mins + 'm ' + (secs < 10 ? '0' : '') + secs + 's';
+            }
+        });
+    }
+    tickTimers();
+    setInterval(tickTimers, 1000);
 });
 </script>
 {% endblock %}

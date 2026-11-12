@@ -36,3 +36,6 @@ logs/
 htmlcov/
 .pytest_cache/
 
+# Archivos QR generados dinámicamente
+static/qrcodes/*.png
+!static/qrcodes/.gitkeep

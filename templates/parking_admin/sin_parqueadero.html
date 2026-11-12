@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sin Parqueadero Asignado - Park+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 500px; margin: 3rem auto; text-align: center; padding: 2.5rem 1.5rem;">
+    <div style="font-size: 3rem; color: #f59e0b; margin-bottom: 1rem;">
+        <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--gray-900); margin-bottom: 0.5rem;">Sin Parqueadero Asignado</h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+        Tu cuenta de operador aún no tiene un parqueadero vinculado. Por favor contacta al Administrador General para que te asigne uno.
+    </p>
+    <a href="{{ url_for('auth.logout') }}" class="btn btn-outline">
+        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+    </a>
+</div>
+{% endblock %}
+

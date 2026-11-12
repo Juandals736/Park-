@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Escanear QR - Park+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fas fa-qrcode"></i> Escáner de Reservas QR</h1>
+        <p class="page-subtitle">Validar llegada de estudiantes a: <strong>{{ parqueadero.nombre if parqueadero else 'tu parqueadero' }}</strong></p>
+    </div>
+    <a href="{{ url_for('parking_admin.reservas') }}" class="btn btn-outline">
+        <i class="fas fa-arrow-left"></i> Volver a Reservas
+    </a>
+</div>
+
+<div style="max-width: 600px; margin: auto;">
+
+    <!-- Área de cámara -->
+    <div class="card" style="text-align: center; padding: 1.5rem;">
+        <div id="reader" style="width: 100%; max-width: 480px; margin: auto; border-radius: 10px; overflow: hidden; border: 2px solid var(--border-color);"></div>
+
+        <!-- Entrada manual como alternativa -->
+        <div style="margin-top: 1.5rem;">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">O ingresa el código manualmente:</p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                <input type="text" id="codigoManual" placeholder="Ej: RES-ABC123"
+                    style="padding: 0.5rem 1rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: monospace; font-size: 1rem; text-transform: uppercase; width: 200px;">
+                <button onclick="validarCodigo(document.getElementById('codigoManual').value)" class="btn btn-primary">
+                    <i class="fas fa-check"></i> Validar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de resultado -->
+    <div id="resultado" style="display: none; margin-top: 1.5rem;"></div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- html5-qrcode: librería para cámara QR sin dependencias extras -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+var escaneando = false;
+
+function mostrarResultado(ok, data) {
+    var el = document.getElementById('resultado');
+    if (ok) {
+        el.innerHTML = `
+            <div class="card" style="border-left: 4px solid var(--green-600); padding: 1.25rem;">
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--green-700); margin-bottom: 0.75rem;">
+                    <i class="fas fa-check-circle"></i> ${data.mensaje}
+                </div>
+                <div style="font-size: 0.9rem; line-height: 1.8;">
+                    <div><strong>Estudiante:</strong> ${data.estudiante}</div>
+                    <div><strong>Parqueadero:</strong> ${data.parqueadero}</div>
+                    <div><strong>Vehículo:</strong> ${data.vehiculo}</div>
+                    <div><strong>Fecha:</strong> ${data.fecha}</div>
+                    <div><strong>Horario:</strong> ${data.horario}</div>
+                </div>
+                <button onclick="reiniciarEscaner()" class="btn btn-primary" style="margin-top: 1rem;">
+                    <i class="fas fa-redo"></i> Escanear otra reserva
+                </button>
+            </div>`;
+    } else {
+        el.innerHTML = `
+            <div class="card" style="border-left: 4px solid var(--red-600); padding: 1.25rem;">
+                <div style="font-size: 1rem; font-weight: 700; color: var(--red-700);">
+                    <i class="fas fa-times-circle"></i> ${data.mensaje}
+                </div>
+                <button onclick="reiniciarEscaner()" class="btn btn-outline" style="margin-top: 1rem;">
+                    <i class="fas fa-redo"></i> Intentar de nuevo
+                </button>
+            </div>`;
+    }
+    el.style.display = 'block';
+    el.scrollIntoView({ behavior: 'smooth' });
+}
+
+function validarCodigo(codigo) {
+    if (!codigo || !codigo.trim()) {
+        alert('Por favor ingresa un código de reserva.');
+        return;
+    }
+    fetch('{{ url_for("parking_admin.validar_qr") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo: codigo.trim().toUpperCase() })
+    })
+    .then(r => r.json())
+    .then(data => {
+        mostrarResultado(data.ok, data);
+        // Detener cámara tras escaneo exitoso
+        if (data.ok && html5QrCode) {
+            html5QrCode.stop().catch(() => {});
+        }
+    })
+    .catch(() => {
+        mostrarResultado(false, { mensaje: 'Error de red al validar. Intenta de nuevo.' });
+    });
+}
+
+var html5QrCode = null;
+
+function iniciarEscaner() {
+    if (escaneando) return;
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        function(codigoDecodificado) {
+            if (!escaneando) {
+                escaneando = true;
+                validarCodigo(codigoDecodificado);
+                html5QrCode.pause();
+            }
+        },
+        function(errorMsg) { /* ignorar errores de frame */ }
+    ).catch(function(err) {
+        document.getElementById('reader').innerHTML =
+            '<p style="padding:1rem; color: var(--red-600);"><i class="fas fa-exclamation-triangle"></i> No se pudo acceder a la cámara. Usa la entrada manual.</p>';
+    });
+}
+
+function reiniciarEscaner() {
+    document.getElementById('resultado').style.display = 'none';
+    document.getElementById('codigoManual').value = '';
+    escaneando = false;
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => { iniciarEscaner(); }).catch(() => { iniciarEscaner(); });
+    } else {
+        iniciarEscaner();
+    }
+}
+
+// Iniciar cámara al cargar
+window.addEventListener('load', iniciarEscaner);
+</script>
+{% endblock %}
+

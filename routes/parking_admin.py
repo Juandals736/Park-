@@ -13,70 +13,74 @@ parking_admin_bp = Blueprint('parking_admin', __name__, url_prefix='/parking-adm
 def check_parking_admin_access():
     pass
 
-def get_admin_parqueaderos_query():
-    """Retorna los parqueaderos asignados al operador o todos si es admin general o no tiene asignación específica."""
-    if current_user.is_admin:
-        return Parqueadero.query
-    parqueaderos = Parqueadero.query.filter_by(administrador_id=current_user.id)
-    if parqueaderos.count() == 0:
-        # Si no tiene asignado específicamente, permitir gestionar todos los parqueaderos en el sistema
-        return Parqueadero.query
-    return parqueaderos
+def get_operador_parqueadero():
+    """Retorna el único parqueadero vinculado al operador actual."""
+    parqueadero = Parqueadero.query.filter_by(administrador_id=current_user.id).first()
+    if not parqueadero and current_user.is_admin:
+        parqueadero = Parqueadero.query.first()
+    return parqueadero
 
 @parking_admin_bp.route('/')
 @parking_admin_bp.route('/dashboard')
 def dashboard():
-    query = get_admin_parqueaderos_query()
-    parqueaderos = query.all()
-    parqueadero_ids = [p.id for p in parqueaderos]
+    p = get_operador_parqueadero()
+    if not p:
+        flash('No tienes ningún parqueadero asignado a tu cuenta de operador.', 'warning')
+        return render_template('parking_admin/sin_parqueadero.html')
 
-    total_parqueaderos = len(parqueaderos)
-    capacidad_total = sum(p.capacidad_total for p in parqueaderos)
-    espacios_ocupados = sum(p.espacios_ocupados for p in parqueaderos)
-    espacios_disponibles = max(0, capacidad_total - espacios_ocupados)
+    capacidad_total = p.capacidad_total
+    espacios_ocupados = p.espacios_ocupados
+    espacios_disponibles = p.espacios_disponibles
 
-    # Reservas de estos parqueaderos
-    reservas_query = Reserva.query.filter(Reserva.parqueadero_id.in_(parqueadero_ids)) if parqueadero_ids else Reserva.query.filter_by(id=-1)
+    # Reservas exclusivas de este único parqueadero
+    reservas_query = Reserva.query.filter_by(parqueadero_id=p.id)
     total_reservas = reservas_query.count()
+    reservas_pendientes = reservas_query.filter_by(estado='pendiente').count()
     reservas_activas = reservas_query.filter_by(estado='activa').count()
     reservas_hoy = reservas_query.filter(Reserva.fecha == date.today()).count()
 
     return render_template(
         'parking_admin/dashboard.html',
-        parqueaderos=parqueaderos,
-        total_parqueaderos=total_parqueaderos,
+        parqueadero=p,
+        total_parqueaderos=1,
         capacidad_total=capacidad_total,
         espacios_ocupados=espacios_ocupados,
         espacios_disponibles=espacios_disponibles,
         total_reservas=total_reservas,
+        reservas_pendientes=reservas_pendientes,
         reservas_activas=reservas_activas,
         reservas_hoy=reservas_hoy
     )
 
 @parking_admin_bp.route('/api/stats')
 def api_stats():
-    """Endpoint que suministra los datos estructurados para los gráficos Highcharts."""
-    query = get_admin_parqueaderos_query()
-    parqueaderos = query.all()
-    parqueadero_ids = [p.id for p in parqueaderos]
+    """Endpoint con métricas y gráficos exclusivos del parqueadero del operador."""
+    p = get_operador_parqueadero()
+    if not p:
+        return jsonify({
+            'parqueaderos': {'categorias': [], 'ocupados': [], 'disponibles': []},
+            'estados': [],
+            'tendencia': {'dias': [], 'conteos': []}
+        })
 
-    # 1. Gráfico de Capacidad vs Ocupación por Parqueadero
-    categorias_nombres = [p.nombre for p in parqueaderos]
-    datos_ocupados = [p.espacios_ocupados for p in parqueaderos]
-    datos_disponibles = [p.espacios_disponibles for p in parqueaderos]
+    # 1. Gráfico de Capacidad vs Ocupación del Parqueadero
+    categorias_nombres = [p.nombre]
+    datos_ocupados = [p.espacios_ocupados]
+    datos_disponibles = [p.espacios_disponibles]
 
     # 2. Gráfico de Reservas por Estado
     estados_conteo = db.session.query(
         Reserva.estado, func.count(Reserva.id)
     ).filter(
-        Reserva.parqueadero_id.in_(parqueadero_ids) if parqueadero_ids else False
+        Reserva.parqueadero_id == p.id
     ).group_by(Reserva.estado).all()
 
     datos_estados = []
     color_map = {
-        'activa': '#10b981',      # Verde
-        'completada': '#2563eb',  # Azul
-        'cancelada': '#ef4444'    # Rojo
+        'pendiente': '#f59e0b',
+        'activa': '#10b981',
+        'completada': '#2563eb',
+        'cancelada': '#ef4444'
     }
     for est, cnt in estados_conteo:
         datos_estados.append({
@@ -93,7 +97,7 @@ def api_stats():
     reservas_por_dia = []
     for d in ultimos_dias:
         cnt = db.session.query(func.count(Reserva.id)).filter(
-            Reserva.parqueadero_id.in_(parqueadero_ids) if parqueadero_ids else False,
+            Reserva.parqueadero_id == p.id,
             Reserva.fecha == d
         ).scalar() or 0
         reservas_por_dia.append(cnt)
@@ -113,16 +117,17 @@ def api_stats():
 
 @parking_admin_bp.route('/parqueaderos')
 def parqueaderos():
-    query = get_admin_parqueaderos_query()
-    parqueaderos = query.all()
-    return render_template('parking_admin/parqueaderos.html', parqueaderos=parqueaderos)
+    p = get_operador_parqueadero()
+    parqueaderos_lista = [p] if p else []
+    return render_template('parking_admin/parqueaderos.html', parqueaderos=parqueaderos_lista, parqueadero=p)
 
 @parking_admin_bp.route('/parqueaderos/<int:id>/actualizar-ocupacion', methods=['POST'])
 def actualizar_ocupacion(id):
-    query = get_admin_parqueaderos_query()
-    p = query.filter_by(id=id).first_or_404()
+    p = get_operador_parqueadero()
+    if not p or p.id != id:
+        return jsonify({'error': 'No autorizado para este parqueadero'}), 403
 
-    cambio = request.form.get('cambio') # '+1', '-1' o valor exacto
+    cambio = request.form.get('cambio')
     if cambio == '+1':
         p.espacios_ocupados = min(p.capacidad_total, p.espacios_ocupados + 1)
     elif cambio == '-1':
@@ -149,8 +154,10 @@ def actualizar_ocupacion(id):
 
 @parking_admin_bp.route('/parqueaderos/<int:id>/editar-info', methods=['POST'])
 def editar_info(id):
-    query = get_admin_parqueaderos_query()
-    p = query.filter_by(id=id).first_or_404()
+    p = get_operador_parqueadero()
+    if not p or p.id != id:
+        flash('No autorizado para modificar este parqueadero.', 'danger')
+        return redirect(url_for('parking_admin.parqueaderos'))
 
     p.capacidad_total = int(request.form.get('capacidad_total', p.capacidad_total))
     p.espacios_ocupados = int(request.form.get('espacios_ocupados', p.espacios_ocupados))
@@ -168,40 +175,97 @@ def editar_info(id):
 
 @parking_admin_bp.route('/reservas')
 def reservas():
-    query = get_admin_parqueaderos_query()
-    parqueaderos = query.all()
-    parqueadero_ids = [p.id for p in parqueaderos]
+    p = get_operador_parqueadero()
+    if not p:
+        flash('No tienes ningún parqueadero asignado.', 'warning')
+        return redirect(url_for('parking_admin.dashboard'))
 
-    # Filtros opcionales
     estado_filtro = request.args.get('estado', '')
-    parqueadero_filtro = request.args.get('parqueadero_id', '')
 
-    reservas_q = Reserva.query.filter(Reserva.parqueadero_id.in_(parqueadero_ids)) if parqueadero_ids else Reserva.query.filter_by(id=-1)
+    # Consultar estrictamente las reservas de SU parqueadero
+    reservas_q = Reserva.query.filter_by(parqueadero_id=p.id)
 
     if estado_filtro:
-        reservas_q = reservas_q.filter(Reserva.estado == estado_filtro)
-    if parqueadero_filtro and parqueadero_filtro.isdigit():
-        reservas_q = reservas_q.filter(Reserva.parqueadero_id == int(parqueadero_filtro))
+        reservas_q = reservas_q.filter_by(estado=estado_filtro)
 
     reservas_list = reservas_q.order_by(Reserva.fecha.desc(), Reserva.hora_inicio.desc()).all()
 
     return render_template(
         'parking_admin/reservas.html',
         reservas=reservas_list,
-        parqueaderos=parqueaderos,
-        estado_filtro=estado_filtro,
-        parqueadero_filtro=parqueadero_filtro
+        parqueadero=p,
+        estado_filtro=estado_filtro
     )
 
 @parking_admin_bp.route('/reservas/<int:id>/cambiar-estado', methods=['POST'])
 def cambiar_estado_reserva(id):
-    query = get_admin_parqueaderos_query()
-    parqueadero_ids = [p.id for p in query.all()]
-    
-    reserva = Reserva.query.filter(Reserva.id == id, Reserva.parqueadero_id.in_(parqueadero_ids)).first_or_404()
+    p = get_operador_parqueadero()
+    reserva = Reserva.query.filter_by(id=id, parqueadero_id=p.id).first_or_404()
     nuevo_estado = request.form.get('estado')
-    if nuevo_estado in ['activa', 'completada', 'cancelada']:
+    if nuevo_estado in ['pendiente', 'activa', 'completada', 'cancelada']:
         reserva.estado = nuevo_estado
+        if nuevo_estado in ['activa', 'completada']:
+            reserva.is_active = True
+        elif nuevo_estado == 'cancelada':
+            reserva.is_active = False
+            if reserva.fecha == date.today() and p.espacios_ocupados > 0:
+                p.espacios_ocupados = max(0, p.espacios_ocupados - 1)
+                p.actualizar_disponibilidad()
         db.session.commit()
         flash(f'Reserva {reserva.codigo_reserva} marcada como {nuevo_estado}.', 'success')
     return redirect(url_for('parking_admin.reservas'))
+
+
+# ─── Escáner QR ────────────────────────────────────────────────────────────────
+
+@parking_admin_bp.route('/escanear-qr')
+def escanear_qr():
+    """Página con cámara para escanear el QR de una reserva del parqueadero."""
+    p = get_operador_parqueadero()
+    return render_template('parking_admin/escanear_qr.html', parqueadero=p)
+
+
+@parking_admin_bp.route('/api/validar-qr', methods=['POST'])
+def validar_qr():
+    """Recibe el código escaneado y valida si pertenece al parqueadero del operador."""
+    p = get_operador_parqueadero()
+    if not p:
+        return jsonify({'ok': False, 'mensaje': 'No tienes parqueadero asignado.'}), 403
+
+    data = request.get_json(force=True)
+    codigo = (data.get('codigo') or '').strip().upper()
+
+    if not codigo:
+        return jsonify({'ok': False, 'mensaje': 'Código de reserva vacío.'}), 400
+
+    reserva = Reserva.query.filter_by(codigo_reserva=codigo).first()
+    if not reserva:
+        return jsonify({'ok': False, 'mensaje': f'No existe ninguna reserva con el código {codigo}.'}), 404
+
+    # Validar que la reserva pertenezca al parqueadero de este operador
+    if reserva.parqueadero_id != p.id:
+        return jsonify({
+            'ok': False,
+            'mensaje': f'⚠️ Esta reserva pertenece a "{reserva.parqueadero.nombre}". Tu parqueadero es "{p.nombre}".'
+        }), 403
+
+    if reserva.estado == 'completada':
+        return jsonify({'ok': False, 'mensaje': f'La reserva {reserva.codigo_reserva} ya fue completada anteriormente.'})
+
+    if reserva.estado == 'cancelada':
+        return jsonify({'ok': False, 'mensaje': f'La reserva {reserva.codigo_reserva} fue cancelada o expiró el temporizador de 15 minutos.'})
+
+    # Marcar como activa y completada al validar la llegada
+    reserva.is_active = True
+    reserva.estado = 'completada'
+    db.session.commit()
+
+    return jsonify({
+        'ok': True,
+        'mensaje': f'✅ Reserva {reserva.codigo_reserva} validada y completada con éxito en {p.nombre}.',
+        'estudiante': reserva.estudiante.nombre_completo,
+        'parqueadero': p.nombre,
+        'vehiculo': f"{reserva.tipo_vehiculo.capitalize()} ({reserva.placa_vehiculo or 'S/P'})",
+        'fecha': reserva.fecha.strftime('%d/%m/%Y'),
+        'horario': f"{reserva.hora_inicio.strftime('%H:%M')} - {reserva.hora_finalizacion.strftime('%H:%M')}"
+    })

@@ -19,6 +19,42 @@ def create_app(config_class=Config):
     # Inicializar extensiones
     db.init_app(app)
     login_manager.init_app(app)
+    from flask_migrate import Migrate
+    migrate = Migrate(app, db)
+    # Scheduler para cancelar reservas pendientes expiradas
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+    except ImportError:
+        BackgroundScheduler = None
+    from datetime import datetime, timezone
+    from models import Reserva
+    def cancelar_reservas_expiradas():
+        with app.app_context():
+            now = datetime.now(timezone.utc)
+            # Reservas pendientes cuyo tiempo expiró → cancelar automáticamente
+            expiradas = Reserva.query.filter(
+                Reserva.estado == 'pendiente',
+                Reserva.expires_at != None,
+                Reserva.expires_at <= now
+            ).all()
+            for r in expiradas:
+                r.estado = 'cancelada'
+                r.is_active = False
+                # Liberar espacio si era para hoy
+                from datetime import date
+                if r.fecha == date.today() and r.parqueadero.espacios_ocupados > 0:
+                    r.parqueadero.espacios_ocupados = max(0, r.parqueadero.espacios_ocupados - 1)
+                    r.parqueadero.actualizar_disponibilidad()
+                print(f"[Scheduler] Reserva {r.codigo_reserva} cancelada por tiempo expirado.")
+            if expiradas:
+                from models import db as _db
+                _db.session.commit()
+    if BackgroundScheduler:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(func=cancelar_reservas_expiradas, trigger='interval', seconds=30)
+        scheduler.start()
+    from flask_migrate import Migrate
+    migrate = Migrate(app, db)
 
     # Registrar Blueprints
     from routes.auth import auth_bp

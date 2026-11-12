@@ -47,7 +47,7 @@
 {% else %}
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.25rem;">
     {% for r in reservas %}
-    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid {% if r.estado == 'activa' %}var(--green-600){% elif r.estado == 'completada' %}var(--blue-600){% else %}var(--red-600){% endif %};">
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid {% if r.estado == 'pendiente' %}var(--amber-500){% elif r.estado == 'activa' %}var(--green-600){% elif r.estado == 'completada' %}var(--blue-600){% else %}var(--red-600){% endif %};">
         <div>
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
                 <div>
@@ -55,9 +55,12 @@
                     <div style="font-size: 1.25rem; font-weight: 800; color: var(--blue-900); font-family: monospace;">
                         {{ r.codigo_reserva }}
                     </div>
+                    <a href="{{ url_for('student.detalle_reserva', id=r.id) }}" class="btn btn-sm btn-info mt-2"><i class="fas fa-info-circle"></i> Ver detalle / QR</a>
                 </div>
                 <div>
-                    {% if r.estado == 'activa' %}
+                    {% if r.estado == 'pendiente' %}
+                        <span class="badge badge-amber"><i class="fas fa-hourglass-half"></i> Pendiente</span>
+                    {% elif r.estado == 'activa' %}
                         <span class="badge badge-success"><i class="fas fa-check-circle"></i> Activa</span>
                     {% elif r.estado == 'completada' %}
                         <span class="badge badge-blue"><i class="fas fa-flag-checkered"></i> Completada</span>
@@ -66,6 +69,17 @@
                     {% endif %}
                 </div>
             </div>
+
+            {% if r.estado == 'pendiente' and r.expires_at %}
+            <!-- Temporizador de 15 minutos -->
+            <div style="background: #fff8e1; border: 1px solid #ffcc02; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-stopwatch" style="font-size: 1.5rem; color: #f57c00;"></i>
+                <div>
+                    <div style="font-weight: 700; color: #e65100; font-size: 0.9rem;">Tiempo restante para confirmar</div>
+                    <div class="timer-countdown" data-expires="{{ r.expires_at.isoformat() }}" style="font-size: 1.3rem; font-weight: 800; color: #bf360c; font-family: monospace;"></div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Información del Parqueadero -->
             <div style="margin-bottom: 1rem;">
@@ -100,7 +114,7 @@
 
         <!-- Acciones -->
         <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
-            {% if r.estado == 'activa' %}
+            {% if r.estado == 'activa' or r.estado == 'pendiente' %}
             <button class="btn btn-sm btn-danger" onclick="confirmarCancelacion({{ r.id }}, '{{ r.codigo_reserva }}')">
                 <i class="fas fa-ban"></i> Cancelar Reserva
             </button>
@@ -141,5 +155,24 @@ function confirmarCancelacion(id, codigo) {
     document.getElementById('cancel_codigo_reserva').textContent = codigo;
     abrirModal('modalCancelarReserva');
 }
+
+// Temporizadores de cuenta regresiva
+document.querySelectorAll('.timer-countdown').forEach(function(el) {
+    var expiresAt = new Date(el.dataset.expires);
+    function tick() {
+        var now = new Date();
+        var diff = expiresAt - now;
+        if (diff <= 0) {
+            el.textContent = '¡Tiempo expirado!';
+            el.style.color = '#b71c1c';
+        } else {
+            var mins = Math.floor(diff / 60000);
+            var secs = Math.floor((diff % 60000) / 1000);
+            el.textContent = mins + 'm ' + (secs < 10 ? '0' : '') + secs + 's';
+        }
+    }
+    tick();
+    setInterval(tick, 1000);
+});
 </script>
 {% endblock %}

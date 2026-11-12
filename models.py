@@ -188,7 +188,10 @@ class Reserva(db.Model):
     
     # Estado: 'activa', 'completada', 'cancelada'
     estado = db.Column(db.String(20), nullable=False, default='activa', index=True)
-    
+    # Nuevos campos para temporizador y pago
+    expires_at = db.Column(db.DateTime, nullable=True)  # se establece +15min al crear
+    is_active = db.Column(db.Boolean, default=False, nullable=False)  # pasa a True cuando expira
+    payment_status = db.Column(db.String(20), default='pending', nullable=False)  # pending/paid/cancelled    
     notas = db.Column(db.Text, nullable=True)
     costo_estimado = db.Column(db.Numeric(10, 2), nullable=True)
     fecha_creacion = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
