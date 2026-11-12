@@ -196,6 +196,16 @@ class Reserva(db.Model):
     costo_estimado = db.Column(db.Numeric(10, 2), nullable=True)
     fecha_creacion = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
+    @property
+    def expires_at_iso(self):
+        """Retorna la fecha de expiración en formato ISO 8601 UTC explícito con sufijo Z para evitar desfaces horarios en navegadores."""
+        if not self.expires_at:
+            return ""
+        dt = self.expires_at
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc)
+        return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
     def to_dict(self):
         return {
             'id': self.id,

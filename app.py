@@ -30,13 +30,20 @@ def create_app(config_class=Config):
     from models import Reserva
     def cancelar_reservas_expiradas():
         with app.app_context():
-            now = datetime.now(timezone.utc)
+            now_utc = datetime.now(timezone.utc)
+            now_naive = datetime.utcnow()
             # Reservas pendientes cuyo tiempo expiró → cancelar automáticamente
-            expiradas = Reserva.query.filter(
+            pendientes = Reserva.query.filter(
                 Reserva.estado == 'pendiente',
-                Reserva.expires_at != None,
-                Reserva.expires_at <= now
+                Reserva.expires_at.isnot(None)
             ).all()
+            expiradas = []
+            for r in pendientes:
+                dt = r.expires_at
+                is_expired = (dt <= now_utc) if dt.tzinfo else (dt <= now_naive)
+                if is_expired:
+                    expiradas.append(r)
+
             for r in expiradas:
                 r.estado = 'cancelada'
                 r.is_active = False

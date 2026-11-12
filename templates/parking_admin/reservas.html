@@ -75,7 +75,7 @@
                         <span class="badge badge-amber"><i class="fas fa-hourglass-half"></i> Pendiente</span>
                         {% if r.expires_at %}
                         <div style="font-size: 0.78rem; font-weight: 700; color: #b45309; margin-top: 0.3rem;">
-                            <i class="fas fa-stopwatch"></i> <span class="op-timer" data-expires="{{ r.expires_at.isoformat() }}"></span>
+                            <i class="fas fa-stopwatch"></i> <span class="op-timer" data-expires="{{ r.expires_at_iso }}"></span>
                         </div>
                         {% endif %}
                     {% elif r.estado == 'activa' %}

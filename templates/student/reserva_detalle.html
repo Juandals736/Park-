@@ -63,7 +63,7 @@
 <script>
 {% if reserva.estado == 'pendiente' and reserva.expires_at %}
 (function() {
-    var expiresAt = new Date("{{ reserva.expires_at.isoformat() }}");
+    var expiresAt = new Date("{{ reserva.expires_at_iso }}");
     var timerEl = document.getElementById('timer');
     function tick() {
         var now = new Date();
